@@ -2,7 +2,7 @@ import numpy as np
 
 # Format following Machine learning with phil memory buffer 
 class memory_buffer():
-  def __init__(self, num_steps, action_size, state_size):
+  def __init__(self, num_steps, action_size, state_size,device):
     self.mem_size = num_steps
     self.states = np.zeros((num_steps,state_size))
     self.states_ = np.zeros((num_steps,state_size))

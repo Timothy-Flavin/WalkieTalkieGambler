@@ -40,8 +40,8 @@ class policy_net(nn.Module):
       nn.functional.sigmoid(self.send(x)),
       nn.functional.tanh(self.dxy(x)),
       torch.mul(nn.functional.sigmoid(self.mag(x)),self.max_in),
-      nn.functional.softmax(self.message_type(x)),
-      nn.functional.softmax(self.message_target(x))),1
+      nn.functional.softmax(self.message_type(x),1),
+      nn.functional.softmax(self.message_target(x),1)),1
     )
     return out
   
@@ -138,7 +138,7 @@ class ddpg():
     self.state = None
     self.batch_size = batch_size
     self.__set_networks__(state_size,hidden_dims,max_agents,m_types,max_instruction)
-    self.memory = memory_buffer(max_mem,self.action_size,state_size)
+    self.memory = memory_buffer(max_mem,self.action_size,state_size, self.device)
     self.update_every = update_every
 
   # This is for the environment to get an action from ddpg
@@ -170,7 +170,7 @@ class ddpg():
     rw = rewards
     done = int(terminated or truncated)
     self.memory.save_transition(st,action,rw,st_,done)
-    if self.update_num % self.update_every==0:
+    if not self.update_num % self.update_every==0:
       return
     states,actions,rewards,states_,dones = self.memory.sample_memory(self.batch_size)
 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
   # instantiate the policy
   brains = {}
   for a in agents:
-    brains[a] = ddpg(st.shape[0],5,8,5,[128,128],0.95,f"./ddpg/{a}/",)
+    brains[a] = ddpg(st.shape[0],5,8,5,[128,64],0.95,f"./ddpg/{a}/",batch_size=64,update_every=64)
     try:
       pa = torch.load(f"./nets/{a}")
       print(pa())
