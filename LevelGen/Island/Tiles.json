@@ -1,0 +1,51 @@
+[
+  {
+    "name": "grass",
+    "color": [0,255,0,255],
+    "flammable": true,
+    "altitude": 1.0,
+    "cover":0.0
+  },
+  {
+    "name": "river",
+    "color": [100,100,255,255],
+    "flammable": false,
+    "altitude": 0.8,
+    "cover":0.0
+  },
+  {
+    "name": "ocean",
+    "color": [0,0,255,255],
+    "flammable": false,
+    "altitude": 0.8,
+    "cover":0.0
+  },
+  {
+    "name": "mountain",
+    "color": [200,125,0,255],
+    "flammable": true,
+    "altitude": 1.5,
+    "cover":0.0
+  },
+  {
+    "name": "shore",
+    "color": [255,255,0,255],
+    "flammable": false,
+    "altitude": 1.0,
+    "cover":0.0
+  },
+  {
+    "name": "peak",
+    "color": [150,80,0,255],
+    "flammable": true,
+    "altitude": 2,
+    "cover":0.0
+  },
+  {
+    "name": "forest",
+    "color": [0,124,0,255],
+    "flammable": true,
+    "altitude": 1.0,
+    "cover":0.0
+  }
+]
