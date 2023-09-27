@@ -299,5 +299,5 @@ if __name__ == "__main__":
       if done:
         break
     tot = time.time() - first_start
-    print(f"env_time {100*env_time/tot:.2f}%, action_time: {100*action_time/tot:.2f}%, update_time: {100*update_time/tot:.2f}% other: {100*(tot-env_time-update_time-action_time)/tot:.2f}%, total: {tot}")
+    print(f"env_time {100*env_time/tot:.2f}%, {env_time:.2f}s, action_time: {100*action_time/tot:.2f}%, {action_time:.2f}s, update_time: {100*update_time/tot:.2f}%, {update_time:.2f}s other: {100*(tot-env_time-update_time-action_time)/tot:.2f}%, total: {tot}")
 
