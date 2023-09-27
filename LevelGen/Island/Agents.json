@@ -1,0 +1,77 @@
+{
+  "Human": {
+    "view_range":3,
+    "speed":2.0,
+    "active_time":2.5,
+    "grounded":true,
+    "color":[255,195,170,255],
+    "speeds": {
+      "grass":1.0,
+      "river":0.2,
+      "ocean":0.2,
+      "forest":1.0,
+      "mountain":0.7,
+      "peak":0.4,
+      "shore": 1.0
+    },
+    "visibilities":{
+      "grass":1.0,
+      "river":1.0,
+      "ocean":1.0,
+      "forest":0.8,
+      "mountain":1.0,
+      "peak":1.0,
+      "shore": 1.0
+    }
+  },
+  "RoboDog": {
+    "view_range":2.5,
+    "speed":3,
+    "active_time":1.5,
+    "grounded":true,
+    "color":[200,200,30,255],
+    "speeds": {
+      "grass":1.0,
+      "river":0.0,
+      "ocean":0.0,
+      "forest":0.5,
+      "mountain":0.7,
+      "peak":0.4,
+      "shore": 0.8
+    },
+    "visibilities":{
+      "grass":0.8,
+      "river":0.8,
+      "ocean":0.8,
+      "forest":0.6,
+      "mountain":0.8,
+      "peak":0.8,
+      "shore": 0.8
+    }
+  },
+  "Drone": {
+    "view_range":5,
+    "speed":5,
+    "active_time":1.0,
+    "grounded":false,
+    "color":[200,50,30,255],
+    "speeds": {
+      "grass":1.0,
+      "river":1.0,
+      "ocean":1.0,
+      "forest":1.0,
+      "mountain":1.0,
+      "peak":1.0,
+      "shore": 1.0
+    },
+    "visibilities":{
+      "grass":0.5,
+      "river":0.2,
+      "ocean":0.5,
+      "forest":0.0,
+      "mountain":0.2,
+      "peak":0.2,
+      "shore": 0.5
+    }
+  }
+}

@@ -1,0 +1,67 @@
+
+ml action format float array
+[
+  0 xdir:float, 
+  1 ydir:float, 
+  2 message:boolean, 
+  3 xcommanddir, 
+  4 ycommanddir, 
+  5 magnitude:float, 
+  6:14 one_hot_message_type, 
+  14:14+max_agents one_hot_target
+]
+  
+the array would be of floats where message >0.5 is true and less is false.
+  one hot coded target based on max number of entities
+
+
+
+State: 
+{
+  "view":[
+            num_agents,
+            self.max_agent_view_dist*2+1,
+            self.max_agent_view_dist*2+1
+          ]
+  "object_state": [num_agents]
+    {
+      "a_state": float [max_agents,6+num_agent_types], 
+      "s_state": float [x,y,age,recency], 
+      "p_state": float [x,y,destroyed,saved,age,recency]
+    }
+  "memory": [num_agents] [height,width,2],
+  "radio":
+  {
+    "message": [
+      0 x_location,
+      1 y_location,
+      2 dx, 
+      3 dy, 
+      4 magnitude
+      5:14 message_type, 
+      14:14+max_agents   one_hot_target
+      14+max_agents:14+max_agents+agent_types   one_hot agent_type
+    ],
+    "sender":[
+      a_num, one-hot
+      a_type, one-hot
+      brain_type, int a_type + brain_type has to be a unique key
+    ],
+    "queue_state":[
+      num_agents,
+      3 (message sent, message denied, message not tried)
+    ]
+    "legal_messages":[
+      num_agents,
+      8 (1's are legal 0s are not)
+    ]
+  }
+}
+
+
+
+
+python -m build
+python -m twine upload --repository testpypi dist/*
+pip uninstall halsarc
+pip install -i https://test.pypi.org/simple/ halsarc

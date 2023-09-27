@@ -1,0 +1,40 @@
+{
+  "Adult":{   
+    "speed":0.5,
+    "active_time":10.0,
+    "color":[200,180,80,255],
+    "moves":"random",
+    "drop_prob":0.005,
+    "track_prob":0.02,
+    "speeds": {
+      "grass":1.0,
+      "river":0.2,
+      "ocean":0.2,
+      "forest":1.0,
+      "mountain":0.7,
+      "peak":0.4,
+      "shore": 1.0
+    },
+    "save_by":["Human","RoboDog"],
+    "camo":0.5
+  },
+  "Child":{
+    "speed":0.4,
+    "active_time":8.0,
+    "color":[250,180,100,255],
+    "moves":"random",
+    "drop_prob":0.005,
+    "track_prob":0.01,
+    "speeds": {
+      "grass":1.0,
+      "river":0.2,
+      "ocean":0.2,
+      "forest":1.0,
+      "mountain":0.7,
+      "peak":0.4,
+      "shore": 1.0
+    },
+    "save_by":["Human","RoboDog"],
+    "camo":0.7
+  }
+}
