@@ -22,7 +22,7 @@ class memory_buffer():
 
   def sample_memory(self, batch_size):
     size = min(self.idx, batch_size)
-    idx = np.random.choice(self.idx%self.mem_size, size, replace=False)
+    idx = np.random.choice(min(self.idx,self.mem_size), size, replace=False)
     return self.states[idx],self.actions[idx],self.rewards[idx],self.states_[idx], self.done[idx]
   
   
