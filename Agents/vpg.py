@@ -21,6 +21,7 @@ class policy_net(nn.Module):
     x = F.relu(self.h(x))
     x = F.relu(self.h2(x))
     x = F.softmax(self.out(x), dim=1)
+    #print(x)
     return x
 
 def class_to_action(action):
@@ -44,44 +45,6 @@ def class_to_action(action):
     return np.array([-1,-1])
 # create environment
 
-def svectorize_state(state):
-  return np.concatenate(
-    (
-      state['view'][0].flatten(),
-      np.concatenate(
-        (
-          state['object_state'][0]["a_state"].flatten(),
-          state['object_state'][0]["s_state"].flatten(),
-          state['object_state'][0]["p_state"].flatten(),
-         )
-      ),
-      state['memory'][0].flatten()
-     )
-    )
-
-def vectorize_state(state,anum,radio=False):
-  a1 = state['view'][anum].flatten()
-  a2 = np.concatenate(
-        (
-          state['object_state'][anum]["a_state"].flatten(),
-          state['object_state'][anum]["s_state"].flatten(),
-          state['object_state'][anum]["p_state"].flatten(),
-        )
-      )
-  a3 = state['memory'][anum].flatten()
-  a4 = np.concatenate(
-        (
-          state['radio']["message"].flatten(),
-          state['radio']["message_legality"][anum].flatten(),
-          state['radio']["queue_status"][anum].flatten(),
-          state['radio']['sender'][0],
-          state['radio']['sender'][1]
-        )
-      )
-  if not radio:
-    a4 = np.zeros(a4.shape)
-  return np.concatenate((a1,a2,a3,a4))
-
 import sys
 #sys.path.insert(1, '../Game') # lets us import game from another folder
 agents = ["Human","RoboDog","Drone"]
@@ -93,7 +56,7 @@ env = sar_env(display=True, tile_map=premade_map, agent_names=agents, poi_names=
 state, info = env.start()
 print(state)
 
-nn_state = vectorize_state(state,0)
+nn_state = sar_env.vectorize_state(state,0,True)
 print(state)
 print(nn_state.shape)
 terminated = False
@@ -109,14 +72,14 @@ for a in agents:
     policies[a].load_state_dict(pa())
   except:
     print(f"Failed to load net for: {a}")
-  optimizers[a] = torch.optim.Adam(policies[a].parameters(), lr=0.001)
+  optimizers[a] = torch.optim.Adam(policies[a].parameters(), lr=0.01)
 
 # create an optimizer
 # initialize gamma and stats
 gamma=0.99
 n_episode = 0
 returns = deque(maxlen=100)
-render_rate = 10 # render every render_rate episodes
+render_rate = 50 # render every render_rate episodes
 while True:
   rewards = []
   actions = []
@@ -127,7 +90,7 @@ while True:
 
   for i,a in enumerate(agents):
     nn_state.append(
-      vectorize_state(state,i)
+      sar_env.vectorize_state(state,i,True)
     )
   nn_state = np.array(nn_state)
   while True:
@@ -157,7 +120,7 @@ while True:
     new_nn_state=[]
     for i,a in enumerate(agents):
       new_nn_state.append(
-        vectorize_state(new_state,i)
+        sar_env.vectorize_state(new_state,i,True)
       )# store state, action and reward
     new_nn_state = np.array(new_nn_state)
     states.append(new_nn_state)

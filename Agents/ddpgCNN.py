@@ -10,8 +10,6 @@ from memory_buffer import memory_buffer
 import os
 import time
 import matplotlib.pyplot as plt
-import math
-from halsarc.Game.controllers import *
 
 # define policy network
 class policy_net(nn.Module):
@@ -72,7 +70,43 @@ class value_net(nn.Module):
         #print(f"After last layer {x.shape}")
     return x.flatten()
   
-class ddpg():
+class cnn(nn.Module):
+  def __init__(self, dims=[13,13], device='cpu'): # nS: state space size, nH: n. of neurons in hidden layer, nA: size action space
+    super(cnn, self).__init__()
+    self.conv1 = nn.Conv2d(3,out_channels=16,kernel_size=5,stride=2)
+    self.conv2 = nn.Conv2d(16,out_channels=32,kernel_size=5,stride=2)
+    self.conv3 = nn.Conv2d(32,out_channels=48,kernel_size=3,stride=1)
+
+  # define forward pass with one hidden layer with ReLU activation and sofmax after output layer
+  def forward(self, x):
+    x = self.conv1(x)
+    x = self.conv2(x)
+    x = self.conv3(x)
+    print(x.shape)
+    return x.flatten()
+class ddpgCNN():
+
+  def vectorize_state(state,anum,radio=False):
+    a2 = np.concatenate(
+          (
+            state['object_state'][anum]["a_state"].flatten(),
+            state['object_state'][anum]["s_state"].flatten(),
+            state['object_state'][anum]["p_state"].flatten(),
+          )
+        )
+    #a3 = state['memory'][anum].flatten()
+    a3 = np.concatenate(
+          (
+            state['radio']["message"].flatten(),
+            state['radio']["message_legality"][anum].flatten(),
+            state['radio']["queue_status"][anum].flatten(),
+            state['radio']['sender'][0],
+            state['radio']['sender'][1]
+          )
+        )
+    if not radio:
+      a3 = np.zeros(a3.shape)
+    return np.concatenate((a2,a3)).astype(np.double)
 
   def __set_networks__(self,state_size,hidden_dims,max_agents,m_types,max_instruction,try_load=False):
     #policy
@@ -84,7 +118,7 @@ class ddpg():
     except Exception as e:
       print(e)
       print(f"Failed to load net for: {self.dir}policy.pkl")
-    self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.01)
+    self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.001)
 
     self.target_policy = policy_net(state_size, hidden_dims,max_agents,m_types,max_instruction,self.device)
     try:
@@ -102,7 +136,7 @@ class ddpg():
       self.value=pa
     except:
       print(f"Failed to load net for: {self.dir}value.pkl")
-    self.value_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.03)
+    self.value_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.001)
 
     self.target_value = value_net(state_size,hidden_dims,max_agents,m_types,max_instruction,self.device)
     try:
@@ -113,11 +147,12 @@ class ddpg():
       self.__move_to_target__(self.value,self.target_value,1)
       print(f"Failed to load net for: {self.dir}target_value.pkl")
 
-  def __init__(self, state_size, max_agents=5, m_types=8, 
+  def __init__(self, state_size, mv, max_agents=5, m_types=8, 
                max_instruction=5, hidden_dims=[256,256], 
                tau=0.95, directory="./ddpg/", eps=0.9,
                eps_decay=0.995, max_mem=30000,
                batch_size = 32, gamma=0.99, update_every=1000):
+    self.max_view = mv
     self.dead = False
     self.gamma = gamma
     self.state_size = state_size
@@ -143,10 +178,9 @@ class ddpg():
     self.state = None
     self.batch_size = batch_size
     self.__set_networks__(state_size,hidden_dims,max_agents,m_types,max_instruction)
+    self.cnn = cnn([mv,mv],self.device)
     self.memory = memory_buffer(max_mem,self.action_size,state_size, self.device)
     self.update_every = update_every
-    self.dead_reward = 0
-    self.died_at = self.update_num
 
   def __rand_action__(self):
     mtype = np.zeros(8)
@@ -168,11 +202,20 @@ class ddpg():
   def action(self, state, anum):
     act=0
     if random.random()<self.eps:
-      act = self.__rand_action__()
+      return self.__rand_action__()
+    
+    view = torch.from_numpy(state['view'][anum])[None,:,:,:].to(self.device)
+    agent_state = torch.from_numpy(self.vectorize_state(state,anum,True))[None,:].to(self.device)
+    v = self.cnn(view)
+    print(f"view shape: {view.shape}")
+    print(f"encoded shape: {v.shape}")
+    nn_state = torch.cat((
+      agent_state,
+      v
+    ),1)
     with torch.no_grad():
-      act = self.policy(torch.from_numpy(sar_env.vectorize_state(state,anum,True))[None,:].to(self.device)).detach().cpu().numpy()
-    return act
-  
+      return self.policy(nn_state).detach().cpu().numpy()
+
   def load(self):
     self.__set_networks__(self.state_size,self.hidden_dims,self.max_agents,self.m_types,self.max_instruction)
   
@@ -201,6 +244,8 @@ class ddpg():
     self.eps*=self.eps_decay
     states,actions,rewards,states_,dones = self.memory.sample_memory(self.batch_size)
     states = torch.from_numpy(states).to(device=self.device)
+    #print(f"States.shape: {states.shape}")
+    #print(f"Actions.shape: {actions.shape}")
     states_ = torch.from_numpy(states_).to(device=self.device)
     dones = torch.from_numpy(dones).to(device=self.device)
     rewards = torch.from_numpy(rewards).to(device=self.device)
@@ -219,6 +264,10 @@ class ddpg():
       + tnet
     )
 
+    #print(states.shape)
+    #print(actions.shape)
+    #print(value_target.shape)
+    #lf = torch.nn.MSELoss().to(self.device)
     loss = torch.square(self.value(
       torch.cat(
         (states,actions),1
@@ -249,45 +298,28 @@ class ddpg():
     torch.save(self.target_value,f"{dir}target_value.pkl")
 
 if __name__ == "__main__":
-  player_num = 0
+  player_num = 1
   agents = ["Human","RoboDog","Drone"]
   max_agents = len(agents)
   pois = ["Child", "Child", "Adult"]
   premade_map = np.load("../LevelGen/Island/Map.npy")
-  env = sar_env(max_agents=3,display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,seed=random.randint(0,10000),player=player_num,explore_multiplier=0.005)
+  env = sar_env(display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,seed=random.randint(0,10000),player=player_num,explore_multiplier=0.005)
   state, info = env.start()
-  controller = player_controller(None)
   print(f"Message shape: {state['radio']['message'].shape}")
   st = sar_env.vectorize_state(state,0,True)
   print(f"state shape: {st.shape}")
-
-  eps = 0.9
-  try:
-    eps = np.load("./ddpg/epsilon.npy")[0]
-  except:
-    print("Could not find epsilon")
 
   terminated = False
   # instantiate the policy
   brains = {}
   for a in agents:
-    brains[a] = ddpg(state_size=st.shape[0],
-                     max_agents=3,
-                     m_types=8,
-                     max_instruction=5,
-                     hidden_dims=[128,128],
-                     tau=0.95,
-                     directory=f"./ddpg/{a}/",
-                     batch_size=32,
-                     update_every=64,
-                     eps=eps,
-                     eps_decay=0.99995)
+    brains[a] = ddpg(st.shape[0],5,8,5,[128,128],0.95,f"./ddpg/{a}/",batch_size=32,update_every=64,eps=0.90,eps_decay=0.99995)
 
   # create an optimizer
   # initialize gamma and stats
   gamma=0.99
-  n_episode = -1
-  render_rate = 10 # render every render_rate episodes
+  n_episode = 0
+  render_rate = 500 # render every render_rate episodes
   envrew = []
   try:
     envrew = list(np.load("./ddpg/rewards.npy"))
@@ -297,9 +329,6 @@ if __name__ == "__main__":
   while True:
     first_start = time.time()
     n_episode+=1
-    player_num+=1
-    player_num = player_num%len(agents)
-    env.player = player_num
     if n_episode%render_rate==0:
       #plt.plot(envrew)
       #plt.title("rewards over time")
@@ -308,7 +337,6 @@ if __name__ == "__main__":
       for a in agents:
         print("Checkpoint")
         brains[a].checkpoint(a)
-        np.save("./ddpg/epsilon.npy",np.array([brains[agents[0]].eps]))
       env.display=True
     else:
       env.display=False
@@ -331,8 +359,6 @@ if __name__ == "__main__":
           #print(np_actions[-1].shape)
         else:
           np_actions.append(brains[a].action(state,i))
-          #if i==player_num and env.display:
-            #np_actions[-1][0,0:2] = controller.choose_action(state,env)
           #print(np_actions[-1].shape)
           
       np_actions = np.array(np_actions)
@@ -344,7 +370,7 @@ if __name__ == "__main__":
       #input()
       action_time += time.time()-start
       #print(f"action shape: {np_actions.shape}")
-
+      # use that action in the environment
       start = time.time()
       new_state, reward, done, _, info = env.step(np_actions)
       tot_r += reward
@@ -365,4 +391,4 @@ if __name__ == "__main__":
     print(brains[agents[0]].eps)
     envrew.append(np.mean(tot_r))
     print(f"rewards {tot_r}, env_time {100*env_time/tot:.2f}%, {env_time:.2f}s, action_time: {100*action_time/tot:.2f}%, {action_time:.2f}s, update_time: {100*update_time/tot:.2f}%, {update_time:.2f}s other: {100*(tot-env_time-update_time-action_time)/tot:.2f}%, total: {tot}")
-    
+
