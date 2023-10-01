@@ -12,6 +12,7 @@ import time
 import matplotlib.pyplot as plt
 import math
 from halsarc.Game.controllers import *
+from brain import brain
 
 # define policy network
 class policy_net(nn.Module):
@@ -72,7 +73,7 @@ class value_net(nn.Module):
         #print(f"After last layer {x.shape}")
     return x.flatten()
   
-class ddpg():
+class ddpg(brain):
 
   def __set_networks__(self,state_size,hidden_dims,max_agents,m_types,max_instruction,try_load=False):
     #policy
@@ -113,11 +114,12 @@ class ddpg():
       self.__move_to_target__(self.value,self.target_value,1)
       print(f"Failed to load net for: {self.dir}target_value.pkl")
 
-  def __init__(self, state_size, max_agents=5, m_types=8, 
+  def __init__(self, state_size, anum, max_agents=5, m_types=8, 
                max_instruction=5, hidden_dims=[256,256], 
                tau=0.95, directory="./ddpg/", eps=0.9,
                eps_decay=0.995, max_mem=30000,
                batch_size = 32, gamma=0.99, update_every=1000):
+    super(ddpg,self).__init__('ddpg', anum)
     self.dead = False
     self.gamma = gamma
     self.state_size = state_size
@@ -239,14 +241,13 @@ class ddpg():
     self.__move_to_target__(self.value,self.target_value,self.tau)
   # This will be called every so many minutes to save the model in case
   # of crash or other problems
-  def checkpoint(self, agent):
-    dir = f"./ddpg/{agent}/"
-    if not os.path.exists(dir):
-      os.makedirs(dir)
-    torch.save(self.policy,f"{dir}policy.pkl")
-    torch.save(self.target_policy,f"{dir}target_policy.pkl")
-    torch.save(self.value,f"{dir}value.pkl")
-    torch.save(self.target_value,f"{dir}target_value.pkl")
+  def checkpoint(self):
+    if not os.path.exists(self.dir):
+      os.makedirs(self.dir)
+    torch.save(self.policy,f"{self.dir}policy.pkl")
+    torch.save(self.target_policy,f"{self.dir}target_policy.pkl")
+    torch.save(self.value,f"{self.dir}value.pkl")
+    torch.save(self.target_value,f"{self.dir}target_value.pkl")
 
 if __name__ == "__main__":
   player_num = 0
@@ -307,7 +308,7 @@ if __name__ == "__main__":
       np.save("./ddpg/rewards.npy",np.array(envrew))
       for a in agents:
         print("Checkpoint")
-        brains[a].checkpoint(a)
+        brains[a].checkpoint()
         np.save("./ddpg/epsilon.npy",np.array([brains[agents[0]].eps]))
       env.display=True
     else:

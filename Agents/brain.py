@@ -1,4 +1,7 @@
 class brain():
+  def __init__(self, name, anum):
+    self.name = name
+    self.anum = anum
   # takes the state and calculates an action for a given agent. 
   def action(self,state,anum):
     pass
