@@ -171,8 +171,9 @@ class ddpg(brain):
     act=0
     if random.random()<self.eps:
       act = self.__rand_action__()
-    with torch.no_grad():
-      act = self.policy(torch.from_numpy(sar_env.vectorize_state(state,anum,True))[None,:].to(self.device)).detach().cpu().numpy()
+    else:
+      with torch.no_grad():
+        act = self.policy(torch.from_numpy(sar_env.vectorize_state(state,anum,True))[None,:].to(self.device)).detach().cpu().numpy()
     return act
   
   def load(self):

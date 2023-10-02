@@ -7,9 +7,9 @@ import os
 import pickle 
 import numpy as np
 # define policy network
-class policy(nn.Module):
+class sup_policy(nn.Module):
   def __init__(self, state_size, hidden_dims=[256,256], max_agents=5, m_types=8, max_instruction=5, device='cpu'): # nS: state space size, nH: n. of neurons in hidden layer, nA: size action space
-    super(policy, self).__init__()
+    super(sup_policy, self).__init__()
     self.max_in = max_instruction
     self.hidden_layers = []
     self.hidden_layers.append(nn.Linear(state_size,hidden_dims[0]))
@@ -47,15 +47,14 @@ class t_sup(brain):
                max_instruction=5, hidden_dims=[256,256], 
                directory="./torch_sup/", data_dir="./",
                batch_size = 32):
+    
     super(t_sup,self).__init__('t_sup',anum)
-    print("Making supervised")
-    print("making ddpg")
     self.action_size = 2+1+2+1+m_types+max_agents
     if torch.cuda.is_available():
       self.device = torch.device('cuda:0')
     else:
       self.device = torch.device('cpu')
-    self.policy = policy(state_size,hidden_dims,max_agents,m_types,max_instruction,self.device)
+    self.policy = sup_policy(state_size,hidden_dims,max_agents,m_types,max_instruction,self.device)
     self.dir = directory
     self.data_dir = data_dir
     self.batch_size = batch_size
@@ -64,13 +63,17 @@ class t_sup(brain):
     self.max_agents = max_agents
     self.m_types = m_types
     self.max_instruction = max_instruction
+    self.policy = sup_policy(self.state_size, self.hidden_dims,self.max_agents,self.m_types,self.max_instruction,self.device)
+    self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.01)
     self.load()
   
   def action(self,state,anum):
-    act = self.policy(torch.from_numpy(sar_env.vectorize_state(state,anum,True))[None,:].to(self.device)).detach().cpu().numpy()
-    return act
+    act = torch.cat(
+      self.policy(torch.from_numpy(sar_env.vectorize_state(state,anum,True)).to(self.device)[None,:])
+    ,1)
+    return act.detach().cpu().numpy()
   # This is where a model will be trained if in training mode.
-  def update(self,anum,state,rewards,terminated,truncated,game_instance):
+  def update(self,anum,state,action,rewards,state_,terminated,truncated,game_instance):
     pass
   # for algorithms that can only update after an episode
   def update_end_of_episode(self):
@@ -83,11 +86,9 @@ class t_sup(brain):
     torch.save(self.policy,self.dir+f"policy.pkl")
   # load this model from a checkpoint
   def load(self):
-    self.policy = policy(self.state_size, self.hidden_dims,self.max_agents,self.m_types,self.max_instruction,self.device)
-    self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.01)
     try:
-      pa = torch.load(os.path.join(self.dir,"policy.pkl"))
-      #print(pa())
+      pa = torch.load(self.dir+"policy.pkl")
+      #print(pa)
       self.policy=pa
     except Exception as e:
       print(e)
@@ -147,6 +148,8 @@ class t_sup(brain):
     
       #self.policy()
     #np.random.choice(len(oldstate),len(oldstate),replace=False)
+
+
 if __name__=="__main__":
   agents = ["RoboDog","Human","Drone"]
   fname = "./recorded_data/"+agents[0]+"_state_record.pkl"
@@ -161,5 +164,5 @@ if __name__=="__main__":
   print(state_shape)
   for i,a in enumerate(agents):
     tsup = t_sup(anum = i,state_size=state_shape,data_dir=f"./recorded_data/{a}",directory=f"./torch_sup/{a}/")
-    tsup.train(10)
+    tsup.train(100)
     tsup.checkpoint()
