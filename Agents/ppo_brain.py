@@ -18,7 +18,7 @@ agents = ["Human","RoboDog","Drone"]
 max_agents = len(agents)
 pois = ["Child", "Child", "Adult"]
 premade_map = np.load("../LevelGen/Island/Map.npy")
-env = sar_env(display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,seed=random.randint(0,10000),player=0,explore_multiplier=0.005)
+env = sar_env(max_agents = 3, display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,seed=random.randint(0,10000),player=0,explore_multiplier=0.005)
       #sar_env(display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,player=0)
 state, info = env.start()
 print(state)
@@ -32,7 +32,15 @@ policies = {}
 optimizers = {}
 
 for a in agents:
-  policies[a] = PPO(nn_state.shape[0],2,0.01,0.01,0.99,10,0.01,True,0.6)
+  policies[a] = PPO(state_dim=nn_state.shape[0],
+                    action_dim=2,
+                    lr_actor=0.001,
+                    lr_critic=0.003,
+                    gamma=0.99,
+                    K_epochs=100,
+                    eps_clip=0.01,
+                    has_continuous_action_space=True,
+                    action_std_init=0.6)
 
 # create an optimizer
 # initialize gamma and stats
@@ -40,7 +48,7 @@ gamma=0.99
 n_episode = 0
 returns = deque(maxlen=100)
 render_rate = 100 # render every render_rate episodes
-update_every = 100
+update_every = 50
 rewards = []
 while True:
   ts = 0
@@ -55,6 +63,7 @@ while True:
   ep_rew = np.zeros(3)
   while True:
     ts+=1
+    #print(state['object_state'][0])
     # render episode every render_rate epsiodes
     if n_episode%render_rate==0:
         env.display=True
@@ -88,15 +97,16 @@ while True:
       policies[a].buffer.is_terminals.append(done)
       if ts % update_every == 0:
         policies[a].update()
-        policies[a].decay_action_std(0.001, 0.1)
+        policies[a].decay_action_std(0.0005, 0.1)
     ep_rew += reward
     if done or _:
       break
+    state = new_state
   n_episode+=1
   rewards.append(np.mean(ep_rew))
   print(f"Mean rew: {rewards[-1]}")   
-  if len(rewards)>10:
-    print(f"smooth mean: {np.mean(np.array(rewards[-10:]))}") 
+  if len(rewards)>20:
+    print(f"smooth mean: {np.mean(np.array(rewards[-20:]))}") 
     np.save("./ppo/rewards.npy",np.array(rewards))
 # close environment
 env.close()

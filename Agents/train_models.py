@@ -7,8 +7,10 @@ from rand_agent import rand_agent
 import os
 import time
 from boid import boid
+from ppo_agent import ppo_brain
+from TD3_Brain import td3_brain
 
-def load_models():
+def load_models(state):
   brains = {}
   end_rewards = {}
   brains['ddpg'] = {}
@@ -34,12 +36,12 @@ def load_models():
       end_rewards['ddpg'][a] = []
       print(f"Could not find rewards at: ./ddpg/{a}/rewards.npy")
   
-  
+  tsupst = sar_env.vectorize_state(state,0,True)
   brains['torch_sup'] = {}
   end_rewards['torch_sup'] = {}
   for a in agents:
     brains['torch_sup'][a] = t_sup(anum = -1,
-                        state_size=st.shape[0],
+                        state_size=tsupst.shape[0],
                         data_dir=f"./recorded_data/{a}",
                         directory=f"./torch_sup/{a}/")
     if not os.path.exists(f"./torch_sup/{a}/"):
@@ -74,6 +76,58 @@ def load_models():
     except: 
       end_rewards['boid'][a] = []
       print(f"Could not find rewards at: ./boid/{a}/rewards.npy")
+  
+  brains['ppo_brain'] = {}
+  end_rewards['ppo_brain'] = {}
+  for a in agents:
+    brains['ppo_brain'][a] = ppo_brain(-1,a,env,state,sar_env.vectorize_state)
+    if not os.path.exists(f"./ppo_brain/{a}/"):
+      os.makedirs(f"./ppo_brain/{a}/")
+    try:
+      end_rewards['ppo_brain'][a] = np.load(f"./ppo_brain/{a}/rewards.npy").tolist()
+    except: 
+      end_rewards['ppo_brain'][a] = []
+      print(f"Could not find rewards at: ./ppo_brain/{a}/rewards.npy")
+  
+
+  brains['ppo_boid'] = {}
+  end_rewards['ppo_boid'] = {}
+  for a in agents:
+    brains['ppo_boid'][a] = ppo_brain(-1,a,env,state,sar_env.boid_state,fname='ppo_boid')
+    if not os.path.exists(f"./ppo_boid/{a}/"):
+      os.makedirs(f"./ppo_boid/{a}/")
+    try:
+      end_rewards['ppo_boid'][a] = np.load(f"./ppo_boid/{a}/rewards.npy").tolist()
+    except: 
+      end_rewards['ppo_boid'][a] = []
+      print(f"Could not find rewards at: ./ppo_boid/{a}/rewards.npy")
+
+
+  brains['td3_boid'] = {}
+  end_rewards['td3_boid'] = {}
+  for a in agents:
+    brains['td3_boid'][a] = td3_brain(0,a,env,state,sar_env.boid_state,32,'td3_boid')
+    if not os.path.exists(f"./td3_boid/{a}/"):
+      os.makedirs(f"./td3_boid/{a}/")
+    try:
+      end_rewards['td3_boid'][a] = np.load(f"./td3_boid/{a}/rewards.npy").tolist()
+    except: 
+      end_rewards['td3_boid'][a] = []
+      print(f"Could not find rewards at: ./td3_boid/{a}/rewards.npy")
+
+  fname = 'td3_brain'
+  brains[fname] = {}
+  end_rewards[fname] = {}
+  for a in agents:
+    brains[fname][a] = td3_brain(0,a,env,state,sar_env.boid_state,32,fname)
+    if not os.path.exists(f"./{fname}/{a}/"):
+      os.makedirs(f"./{fname}/{a}/")
+    try:
+      end_rewards[fname][a] = np.load(f"./{fname}/{a}/rewards.npy").tolist()
+    except: 
+      end_rewards[fname][a] = []
+      print(f"Could not find rewards at: ./{fname}/{a}/rewards.npy")
+  
   return brains, end_rewards
 
 if __name__ == "__main__":
@@ -82,31 +136,33 @@ if __name__ == "__main__":
   max_agents = len(agents)
   pois = ["Child", "Child", "Adult"]
   premade_map = np.load("../LevelGen/Island/Map.npy")
-  env = sar_env(max_agents=3,display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,seed=random.randint(0,10000),player=player_num,explore_multiplier=0.005)
+  env = sar_env(max_agents=3,display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,seed=random.randint(0,10000),player=player_num,explore_multiplier=0.001)
   state, info = env.start()
-  st = sar_env.vectorize_state(state,0,True)
+  st = sar_env.boid_state(state,0,True)
   print(f"Message shape: {state['radio']['message'].shape}")
   print(f"State shape: {st.shape}")
 
-  eps = 0.45
+  eps = 0.1
   terminated = False
   # instantiate the policy
-  brain_names = ['boid']#'ddpg','torch_sup','rand_agent',
-  brains, end_rewards = load_models()
+  brain_names = ['td3_boid','td3_brain']#'ppo_boid','ppo_brain','boid','ddpg','rand_agent','torch_sup',]
+  brains, end_rewards = load_models(state)
   # create an optimizer
   # initialize gamma and stats
   n_episode = -1
-  render_rate = 50 # render every render_rate episodes
+  render_rate = 25 # render every render_rate episodes
   
   while True:
+    print(f"Player {env.player}")
     first_start = time.time()
     n_episode+=1
-    player_num+=1
-    player_num = player_num%len(agents)
+    #player_num+=1
+    #player_num = player_num%len(agents)
     env.player = player_num
     selected_brains = []
     for i in range(max_agents):
       selected_brains.append(brain_names[random.randint(0,len(brain_names)-1)])
+    print(f"selected brains: {selected_brains}")
     if n_episode%render_rate==0:
       #plt.plot(envrew)
       #plt.title("rewards over time")
@@ -129,6 +185,8 @@ if __name__ == "__main__":
         brains[selected_brains[i]][a].dead = info.agents[i].destroyed
         if brains[selected_brains[i]][a].dead:
           np_actions.append(np.zeros((1,14+max_agents)))
+          if selected_brains[i] in ['ppo_brain','ppo_boid']:
+            brains[selected_brains[i]][a].action(state,i)
         else:
           np_actions.append(brains[selected_brains[i]][a].action(state,i))
           #print(f"act shape: {np_actions[-1].shape}")
@@ -142,7 +200,7 @@ if __name__ == "__main__":
       new_nn_state=[]
       for i,a in enumerate(agents):
         new_nn_state.append(
-          sar_env.vectorize_state(new_state,i,True)
+          sar_env.boid_state(new_state,i,True)
         )# store state, action and reward
         #print(f"new state shape: {new_nn_state[0].shape}")
         brains[selected_brains[i]][a].update(i,state,np_actions[i],reward[i],new_state,done,_,env)

@@ -85,7 +85,7 @@ class ddpg(brain):
     except Exception as e:
       print(e)
       print(f"Failed to load net for: {self.dir}policy.pkl")
-    self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.01)
+    self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.001)
 
     self.target_policy = policy_net(state_size, hidden_dims,max_agents,m_types,max_instruction,self.device)
     try:
@@ -103,7 +103,7 @@ class ddpg(brain):
       self.value=pa
     except:
       print(f"Failed to load net for: {self.dir}value.pkl")
-    self.value_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.03)
+    self.value_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.003)
 
     self.target_value = value_net(state_size,hidden_dims,max_agents,m_types,max_instruction,self.device)
     try:
@@ -118,7 +118,7 @@ class ddpg(brain):
                max_instruction=5, hidden_dims=[256,256], 
                tau=0.95, directory="./ddpg/", eps=0.9,
                eps_decay=0.995, max_mem=30000,
-               batch_size = 32, gamma=0.99, update_every=1000):
+               batch_size = 32, gamma=0.99, update_every=100):
     super(ddpg,self).__init__('ddpg', anum)
     self.dead = False
     self.gamma = gamma
@@ -173,7 +173,7 @@ class ddpg(brain):
       act = self.__rand_action__()
     else:
       with torch.no_grad():
-        act = self.policy(torch.from_numpy(sar_env.vectorize_state(state,anum,True))[None,:].to(self.device)).detach().cpu().numpy()
+        act = self.policy(torch.from_numpy(sar_env.boid_state(state,anum,True))[None,:].to(self.device)).detach().cpu().numpy()
     return act
   
   def load(self):
@@ -193,8 +193,8 @@ class ddpg(brain):
   def update(self,anum,state,action,rewards,state_,terminated,truncated,game_instance):
     self.update_num+=1
     if not self.dead or terminated or truncated:
-      st = sar_env.vectorize_state(state,anum,True)
-      st_ = sar_env.vectorize_state(state_,anum,True)
+      st = sar_env.boid_state(state,anum,True)
+      st_ = sar_env.boid_state(state_,anum,True)
       rw = rewards
       done = int(terminated or truncated)
       self.memory.save_transition(st,action,rw,st_,done)
@@ -260,7 +260,7 @@ if __name__ == "__main__":
   state, info = env.start()
   controller = player_controller(None)
   print(f"Message shape: {state['radio']['message'].shape}")
-  st = sar_env.vectorize_state(state,0,True)
+  st = sar_env.boid_state(state,0,True)
   print(f"state shape: {st.shape}")
 
   eps = 0.9
@@ -356,7 +356,7 @@ if __name__ == "__main__":
       new_nn_state=[]
       for i,a in enumerate(agents):
         new_nn_state.append(
-          sar_env.vectorize_state(new_state,i,True)
+          sar_env.boid_state(new_state,i,True)
         )# store state, action and reward
         #print(f"new state shape: {new_nn_state[0].shape}")
         brains[a].update(i,state,np_actions[i],reward[i],new_state,done,_,env)

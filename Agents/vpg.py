@@ -130,7 +130,7 @@ while True:
     nn_state = new_nn_state
     if done:
       break
-
+    state = new_state    
   for ai,a in enumerate(agents):
     # preprocess rewards
     rewardsi = np.array(rewards[ai])

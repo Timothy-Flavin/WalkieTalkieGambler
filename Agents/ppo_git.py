@@ -47,11 +47,11 @@ class ActorCritic(nn.Module):
         # actor
         if has_continuous_action_space :
             self.actor = nn.Sequential(
-                            nn.Linear(state_dim, 64),
+                            nn.Linear(state_dim, 256),
                             nn.Tanh(),
-                            nn.Linear(64, 64),
+                            nn.Linear(256, 256),
                             nn.Tanh(),
-                            nn.Linear(64, action_dim),
+                            nn.Linear(256, action_dim),
                             nn.Tanh()
                         )
         else:
@@ -65,11 +65,11 @@ class ActorCritic(nn.Module):
                         )
         # critic
         self.critic = nn.Sequential(
-                        nn.Linear(state_dim, 64),
+                        nn.Linear(state_dim, 256),
                         nn.Tanh(),
-                        nn.Linear(64, 64),
+                        nn.Linear(256, 256),
                         nn.Tanh(),
-                        nn.Linear(64, 1)
+                        nn.Linear(256, 1)
                     )
         
     def set_action_std(self, new_action_std):
@@ -157,20 +157,20 @@ class PPO:
             print("--------------------------------------------------------------------------------------------")
 
     def decay_action_std(self, action_std_decay_rate, min_action_std):
-        print("--------------------------------------------------------------------------------------------")
+        #print("--------------------------------------------------------------------------------------------")
         if self.has_continuous_action_space:
             self.action_std = self.action_std - action_std_decay_rate
             self.action_std = round(self.action_std, 4)
             if (self.action_std <= min_action_std):
                 self.action_std = min_action_std
-                print("setting actor output action_std to min_action_std : ", self.action_std)
-            else:
-                print("setting actor output action_std to : ", self.action_std)
+                #print("setting actor output action_std to min_action_std : ", self.action_std)
+            #else:
+                #print("setting actor output action_std to : ", self.action_std)
             self.set_action_std(self.action_std)
 
         else:
             print("WARNING : Calling PPO::decay_action_std() on discrete action space policy")
-        print("--------------------------------------------------------------------------------------------")
+        #print("--------------------------------------------------------------------------------------------")
 
     def select_action(self, state):
 
@@ -210,7 +210,7 @@ class PPO:
         # Normalizing the rewards
         rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
-
+        #print(f"rew: {len(self.buffer.rewards)}, rewards: {len(rewards)}, states: {len(self.buffer.states)}, actions: {len(self.buffer.actions)}")
         # convert list to tensor
         old_states = torch.squeeze(torch.stack(self.buffer.states, dim=0)).detach().to(device)
         old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=0)).detach().to(device)

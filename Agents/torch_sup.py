@@ -6,6 +6,7 @@ from halsarc.Game.game import sar_env
 import os
 import pickle 
 import numpy as np
+import matplotlib.pyplot as plt
 # define policy network
 class sup_policy(nn.Module):
   def __init__(self, state_size, hidden_dims=[256,256], max_agents=5, m_types=8, max_instruction=5, device='cpu'): # nS: state space size, nH: n. of neurons in hidden layer, nA: size action space
@@ -63,8 +64,7 @@ class t_sup(brain):
     self.max_agents = max_agents
     self.m_types = m_types
     self.max_instruction = max_instruction
-    self.policy = sup_policy(self.state_size, self.hidden_dims,self.max_agents,self.m_types,self.max_instruction,self.device)
-    self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=0.01)
+    self.policy_optimizer = torch.optim.SGD(self.policy.parameters(), lr=0.00001)
     self.load()
   
   def action(self,state,anum):
@@ -102,6 +102,12 @@ class t_sup(brain):
     except:
       print("No action record found for: " + self.data_dir)
 
+    fileanum = 0
+    try:
+      fileanum = np.load(self.data_dir+"_anum.npy")[0]
+    except:
+      print("No anum found for: " + self.data_dir)
+
     rw = np.zeros((1,1))
     try:
       rw = np.load(self.data_dir+"_reward_record.npy")
@@ -119,24 +125,49 @@ class t_sup(brain):
     print(f"reward shape: {rw.shape}")
     print(f"action shape: {al.shape}")
     print(f"num states: {len(oldstate)}")
+    print(f"File agent num: {fileanum}")
+    np.set_printoptions(precision=2)
+    #for i in oldstate:
+      #print(i['view'][fileanum])
+      #input()
     idx = np.arange(len(oldstate))
-    s1 = sar_env.vectorize_state(oldstate[0],self.anum,True)
     np.random.shuffle(idx)
+    s1 = sar_env.vectorize_state(oldstate[0],fileanum,True)
+    
     st = np.zeros((len(oldstate),s1.shape[0]))
     for i in range(len(oldstate)):
-      st[i] = sar_env.vectorize_state(oldstate[i],self.anum,True)
+      st[i] = sar_env.vectorize_state(oldstate[i],fileanum,True)
     print(idx)
 
     al = torch.from_numpy(al).to(self.device)
     rw = torch.from_numpy(rw).to(self.device)
     st = torch.from_numpy(st).to(self.device)
+    mv_losses = []
+    send_losses=[]
+    dmv_losses = []
+    mag_losses = []
+    mtp_losses=[]
+    targ_losses = []
     for epoch in range(n_epochs):
+      idx = np.arange(len(oldstate))
+      np.random.shuffle(idx)
       for i in range(0,len(idx),self.batch_size):
         self.policy.zero_grad()
         sampis = idx[i:min(i+self.batch_size,len(oldstate)-1)]
         xy,send,dxy,mag,tp,targ = self.policy(st[sampis])
+        
+        deb = False
+        if deb:
+          print("\nBefore: ")
+          print(f"xy: {xy[0].to('cpu').detach().numpy()}, \
+  send: {send[0].to('cpu').detach().numpy()}, \
+  dxy: {dxy[0].to('cpu').detach().numpy()}, \
+  mag: {mag[0].to('cpu').detach().numpy()}, \
+  tp: {tp[0].to('cpu').detach().numpy()}, \
+  targ: {targ[0].to('cpu').detach().numpy()}")
+          print(al[sampis].to('cpu').detach().numpy()[0])
+          print(xy[0])
 
-        #print(xy[0])
         #print(al[sampis])
         torch.square(xy-al[sampis,0:2]).sum().backward(retain_graph=True)
         torch.square(send-al[sampis,2]).sum().backward(retain_graph=True)
@@ -145,10 +176,44 @@ class t_sup(brain):
         F.cross_entropy(tp,al[sampis,6:14]).sum().backward(retain_graph=True)
         F.cross_entropy(targ,al[sampis,14:14+self.max_agents]).sum().backward()
         self.policy_optimizer.step()
-    
+
+        xy,send,dxy,mag,tp,targ = self.policy(st[sampis])
+
+        if deb:
+          print("After: ")
+          print(f"xy: {xy[0].to('cpu').detach().numpy()}, \
+  send: {send[0].to('cpu').detach().numpy()}, \
+  dxy: {dxy[0].to('cpu').detach().numpy()}, \
+  mag: {mag[0].to('cpu').detach().numpy()}, \
+  tp: {tp[0].to('cpu').detach().numpy()}, \
+  targ: {targ[0].to('cpu').detach().numpy()}")
+          print(al[sampis].to('cpu').detach().numpy()[0])
+          print(xy[0])
+
+      self.policy.zero_grad()
+      sampis = idx[0:self.batch_size]
+      xy,send,dxy,mag,tp,targ = self.policy(st[sampis])
+
+      #print(xy[0])
+      #print(al[sampis])
+      mv_losses.append(torch.square(xy-al[sampis,0:2]).sum().to('cpu').item()/self.batch_size)
+      send_losses.append(torch.square(send-al[sampis,2]).sum().to('cpu').item()/self.batch_size)
+      dmv_losses.append(torch.square(dxy-al[sampis,3:5]).sum().to('cpu').item()/self.batch_size)
+      mag_losses.append(torch.square(mag-al[sampis,5]).sum().to('cpu').item()/self.batch_size)
+      mtp_losses.append(F.cross_entropy(tp,al[sampis,6:14]).sum().to('cpu').item()/self.batch_size)
+      targ_losses.append(F.cross_entropy(targ,al[sampis,14:14+self.max_agents]).to('cpu').item()/self.batch_size)
       #self.policy()
     #np.random.choice(len(oldstate),len(oldstate),replace=False)
-
+    plt.plot(mv_losses, label="XY")
+    plt.plot(send_losses, label="Send")
+    plt.plot(dmv_losses, label="d XY")
+    #plt.plot(mag_losses, label="mag")
+    plt.plot(mtp_losses, label="m_type")
+    plt.plot(targ_losses, label="target")
+    plt.grid()
+    plt.legend()
+    plt.title(f"loss over time for {self.data_dir}")
+    plt.show()
 
 if __name__=="__main__":
   agents = ["RoboDog","Human","Drone"]

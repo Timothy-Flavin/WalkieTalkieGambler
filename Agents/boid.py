@@ -8,7 +8,6 @@ class boid(brain):
   def __init__(self, sar, a_type=0):
     super(boid,self).__init__('boid',0)
     self.sar = sar
-    self.a_type = a_type
   def com(self, a, norm=False, invsq=False):
     rc = int(a.shape[0]/2)
     cc = int(a.shape[1]/2)
@@ -29,27 +28,31 @@ class boid(brain):
       com/=np.sqrt(np.sum(np.square(com)))
     return com
   
-  def get_poi_dir(self,state,a_type, anum):
+  def get_poi_dir(self,state, anum):
     pos = state['object_state'][anum]['a_state'][0,0:2]
     dst = 10000000
     p_index = -1
     dir = np.zeros(2)
-    print(f"pstate: \n{state['object_state'][anum]['p_state']}")
+    #print(f"pstate: \n{state['object_state'][anum]['p_state']}")
     for i in range(state['object_state'][anum]['p_state'].shape[0]):
       #poi numbers: x,y,destroyed,saved,age,recency
       poi = state['object_state'][anum]['p_state'][i]
-      print(f"poi: {poi}, pos: {pos}")
-      if np.sum(np.square(poi[0:2]))>0 and poi[2]<1 and poi[3]<1 \
-        and np.sum(np.square(poi[0:2]-pos)) < dst:
+      #print(f"poi: {poi}, pos: {pos}")
+      if np.sum(np.square(poi[0:2]))>0 and poi[2]>0 and poi[3]<1 \
+        and np.sum(np.square(poi[0:2]-pos)) < dst and poi[6]:
         dst = np.sum(np.square(poi[0:2]-pos))
         p_index = i
+    #print(f"{anum}, poi {p_index}")
     if p_index > -1:
+      print(self.sar.pois[p_index].saved)
+      print(f"anum: {anum},\n  {pos} \n  pstate: {state['object_state'][anum]['p_state'][p_index]}")
       dir = state['object_state'][anum]['p_state'][p_index,0:2]-pos
-      print(f"before norm: {dir}")
+      #print(f"before norm: {dir}")
       if np.sum(np.square(dir)) > 0:
         dir = dir/np.sqrt(np.sum(np.square(dir)))
       print(f"after norm: {dir}")
     return dir
+  
   def action(self,state,anum):
     speed_com = self.com(state['view'][anum,0], norm=True)
     alt_com = self.com(state['view'][anum,1], norm=True,invsq=True)
@@ -57,7 +60,7 @@ class boid(brain):
     rand_com = np.random.random(2)-0.5
     center_com = np.array([0.5,0.5]) - state['object_state'][anum]['a_state'][0,0:2] 
     
-    poi_dir = self.get_poi_dir(state, self.a_type, anum)
+    poi_dir = self.get_poi_dir(state, anum)
     #print(state['view'][2])
     #print(state['view'][anum,0])
     #print(speed_com)
