@@ -21,9 +21,9 @@ class ppo_brain(brain):
                     action_dim=2,
                     lr_actor=0.0005,
                     lr_critic=0.001,
-                    gamma=0.995,
+                    gamma=0.997,
                     K_epochs=100,
-                    eps_clip=0.01,
+                    eps_clip=0.005,
                     has_continuous_action_space=True,
                     action_std_init=0.6)
 

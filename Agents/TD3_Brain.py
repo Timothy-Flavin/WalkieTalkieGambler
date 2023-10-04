@@ -8,7 +8,7 @@ from TD3 import TD3
 # define policy network
 
 class td3_brain(brain):
-  def __init__(self, anum,a, sar, state, vectorizer = sar_env.vectorize_state, update_every=32, fname='ppo_brain'):
+  def __init__(self, anum,a, sar, state, vectorizer = sar_env.vectorize_state, update_every=32, fname='ppo_brain',action_dim=2,max_act=1):
     super(td3_brain,self).__init__('ppo_brain',anum)
     self.fname= fname
     self.update_every = update_every
@@ -19,9 +19,9 @@ class td3_brain(brain):
     self.sar = sar
     self.vectorizer = vectorizer
     nn_state = self.vectorizer(state,anum,True)
-    self.td3 = TD3(nn_state.shape[0],action_dim=2,max_action=1,discount=0.995,
+    self.td3 = TD3(nn_state.shape[0],action_dim=action_dim,max_action=max_act,discount=0.997,
                    tau=0.005,policy_noise=0.2,noise_clip=0.5,policy_freq=2)
-    self.buffer = ReplayBuffer(nn_state.shape[0],2,200000)
+    self.buffer = ReplayBuffer(nn_state.shape[0],action_dim,200000)
 
   def action(self,state,anum):
     self.num_ac+=1

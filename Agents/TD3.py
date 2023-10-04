@@ -47,8 +47,10 @@ class Critic(nn.Module):
 
 
 	def forward(self, state, action):
+		#print(state.shape)
+		#print(action.shape)
 		sa = torch.cat([state, action], 1)
-
+		#print(sa.shape)
 		q1 = F.relu(self.l1(sa))
 		q1 = F.relu(self.l2(q1))
 		q1 = self.l3(q1)

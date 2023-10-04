@@ -1,12 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-fnames = ["rand_agent",'boid','ppo_boid','td3_brain','td3_boid']#'torch_sup','ppo_brain',"ddpg",
+fnames = ['boid','ppo_boid','ppo_brain','ddpg','td3_boid','td3_brain','rand_agent']#'torch_sup','ppo_brain',"ddpg",
 anames = ['Human','RoboDog','Drone']
 npars = {}
 files = {}
 names= {}
-colors = ['green','blue','orange','red','purple','yellow']
+#colors = ['green','blue','orange','red','purple','yellow']
 for a in anames:
   files[a] = []
   npars[a] = []
@@ -27,11 +27,11 @@ for a in anames:
     for i in range(int(len(arr)/factor)):
       smooth_arrs[a][-1].append(np.mean(arr[i*factor:(i+1)*factor]))
     print(len(smooth_arrs[a][-1]))
-  print(len(smooth_arrs[a]))
+  #print(len(smooth_arrs[a]))
 
 for a in anames:
   for i,s in enumerate(smooth_arrs[a]):
-    plt.plot(s,label=names[a][i],linewidth=1.5,color=colors[i])
+    plt.plot(s,label=names[a][i],linewidth=1.5)
   plt.legend()
   plt.grid()
   plt.title(f"Results for agent {a}")

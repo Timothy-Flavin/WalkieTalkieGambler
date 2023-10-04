@@ -36,7 +36,7 @@ def load_models(state):
       end_rewards['ddpg'][a] = []
       print(f"Could not find rewards at: ./ddpg/{a}/rewards.npy")
   
-  tsupst = sar_env.vectorize_state(state,0,True)
+  tsupst = sar_env.vectorize_state_small(state,0,True)
   brains['torch_sup'] = {}
   end_rewards['torch_sup'] = {}
   for a in agents:
@@ -80,7 +80,7 @@ def load_models(state):
   brains['ppo_brain'] = {}
   end_rewards['ppo_brain'] = {}
   for a in agents:
-    brains['ppo_brain'][a] = ppo_brain(-1,a,env,state,sar_env.vectorize_state)
+    brains['ppo_brain'][a] = ppo_brain(-1,a,env,state,sar_env.vectorize_state_small,64)
     if not os.path.exists(f"./ppo_brain/{a}/"):
       os.makedirs(f"./ppo_brain/{a}/")
     try:
@@ -119,7 +119,7 @@ def load_models(state):
   brains[fname] = {}
   end_rewards[fname] = {}
   for a in agents:
-    brains[fname][a] = td3_brain(0,a,env,state,sar_env.boid_state,32,fname)
+    brains[fname][a] = td3_brain(0,a,env,state,sar_env.vectorize_state_small,32,fname)
     if not os.path.exists(f"./{fname}/{a}/"):
       os.makedirs(f"./{fname}/{a}/")
     try:
@@ -134,9 +134,9 @@ if __name__ == "__main__":
   player_num = -1
   agents = ["Human","RoboDog","Drone"]
   max_agents = len(agents)
-  pois = ["Child", "Child", "Adult"]
+  pois = ["Child", "Child", "Adult","Adult","Adult"]
   premade_map = np.load("../LevelGen/Island/Map.npy")
-  env = sar_env(max_agents=3,display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,seed=random.randint(0,10000),player=player_num,explore_multiplier=0.001)
+  env = sar_env(max_agents=3,display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,seed=random.randint(0,10000),player=player_num,explore_multiplier=0.003)
   state, info = env.start()
   st = sar_env.boid_state(state,0,True)
   print(f"Message shape: {state['radio']['message'].shape}")
@@ -145,23 +145,26 @@ if __name__ == "__main__":
   eps = 0.1
   terminated = False
   # instantiate the policy
-  brain_names = ['td3_boid','td3_brain']#'ppo_boid','ppo_brain','boid','ddpg','rand_agent','torch_sup',]
+  brain_names = ['td3_brain','ppo_boid','ppo_brain','td3_boid']#,'ddpg','rand_agent','torch_sup','td3_boid']
   brains, end_rewards = load_models(state)
   # create an optimizer
   # initialize gamma and stats
   n_episode = -1
-  render_rate = 25 # render every render_rate episodes
+  render_rate = 50# render every render_rate episodes
   
   while True:
     print(f"Player {env.player}")
-    first_start = time.time()
     n_episode+=1
     #player_num+=1
     #player_num = player_num%len(agents)
     env.player = player_num
     selected_brains = []
+    brain = brain_names[random.randint(0,len(brain_names)-1)]
+    j = random.randint(0,max_agents-1)
     for i in range(max_agents):
-      selected_brains.append(brain_names[random.randint(0,len(brain_names)-1)])
+      selected_brains.append(brain)
+      if i==j:
+        selected_brains[-1] = 'boid'
     print(f"selected brains: {selected_brains}")
     if n_episode%render_rate==0:
       #plt.plot(envrew)
@@ -169,11 +172,13 @@ if __name__ == "__main__":
       #plt.show()
       
       env.display=True
+      
     else:
       env.display=False
     tot_r = np.zeros(3)
     # reset environment
     state, info = env.start()
+    env.debug_render = True
     for i in range(len(agents)):
       env.agents[i].brain_name = selected_brains[i]
     while True:
@@ -187,7 +192,9 @@ if __name__ == "__main__":
           np_actions.append(np.zeros((1,14+max_agents)))
           if selected_brains[i] in ['ppo_brain','ppo_boid']:
             brains[selected_brains[i]][a].action(state,i)
+          
         else:
+          #print(sar_env.boid_state(state,i,True)[0:8])
           np_actions.append(brains[selected_brains[i]][a].action(state,i))
           #print(f"act shape: {np_actions[-1].shape}")
       np_actions = np.array(np_actions)

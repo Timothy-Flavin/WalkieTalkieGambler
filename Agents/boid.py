@@ -54,13 +54,18 @@ class boid(brain):
     return dir
   
   def action(self,state,anum):
+    #print("Starting action")
     speed_com = self.com(state['view'][anum,0], norm=True)
     alt_com = self.com(state['view'][anum,1], norm=True,invsq=True)
     memory_com = self.com(state['view'][anum,2], norm=True,invsq=True)
+    trail_com = self.com(state['view'][anum,3], norm=True,invsq=True)
     rand_com = np.random.random(2)-0.5
-    center_com = np.array([0.5,0.5]) - state['object_state'][anum]['a_state'][0,0:2] 
-    
-    poi_dir = self.get_poi_dir(state, anum)
+    #print(state['object_state'][anum]['a_state'])
+    center_com = -state['object_state'][anum]['a_state'][0,0:2] 
+    #print(f"anume: {anum}'s pstate: {state['object_state'][anum]['p_state']}")
+    #print(center_com)
+    poi_dir = state['object_state'][anum]['p_state'][0:2]+center_com
+    poi_mag = state['object_state'][anum]['p_state'][2]
     #print(state['view'][2])
     #print(state['view'][anum,0])
     #print(speed_com)
@@ -69,7 +74,7 @@ class boid(brain):
     #input()
 
     action = np.zeros((1,14+self.sar.max_agents))
-    action[0,0:2] = speed_com+alt_com-memory_com+rand_com+center_com+poi_dir*5
+    action[0,0:2] = speed_com+alt_com-memory_com+rand_com+center_com+poi_dir*5*poi_mag+trail_com
     #print(action.shape)
     for i in range(5):
       if state['radio']["message_legality"][anum][i]>0:
