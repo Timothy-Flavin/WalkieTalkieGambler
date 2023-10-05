@@ -117,7 +117,7 @@ class ddpg(brain):
   def __init__(self, state_size, anum, max_agents=5, m_types=8, 
                max_instruction=5, hidden_dims=[256,256], 
                tau=0.95, directory="./ddpg/", eps=0.9,
-               eps_decay=0.995, max_mem=30000,
+               eps_decay=0.995, max_mem=200000,
                batch_size = 32, gamma=0.99, update_every=100):
     super(ddpg,self).__init__('ddpg', anum)
     self.dead = False

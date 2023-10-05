@@ -20,10 +20,12 @@ class td3_brain(brain):
     self.vectorizer = vectorizer
     nn_state = self.vectorizer(state,anum,True)
     self.td3 = TD3(nn_state.shape[0],action_dim=action_dim,max_action=max_act,discount=0.997,
-                   tau=0.005,policy_noise=0.2,noise_clip=0.5,policy_freq=2)
+                   tau=0.005,policy_noise=0.1,noise_clip=0.3,policy_freq=3)
     self.buffer = ReplayBuffer(nn_state.shape[0],action_dim,200000)
 
   def action(self,state,anum):
+    #print(self.vectorizer(state,anum,True))
+    #input()
     self.num_ac+=1
     act = np.zeros((1,14+self.sar.max_agents))
     act[0,0:2] = self.td3.select_action(self.vectorizer(state,anum,True))

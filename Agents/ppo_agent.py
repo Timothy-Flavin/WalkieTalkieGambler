@@ -6,7 +6,7 @@ from ppo_git import PPO
 # define policy network
 
 class ppo_brain(brain):
-  def __init__(self, anum,a, sar, state, vectorizer = sar_env.vectorize_state, update_every=32, fname='ppo_brain'):
+  def __init__(self, anum,a, sar, state, vectorizer = sar_env.vectorize_state, update_every=124, fname='ppo_brain'):
     super(ppo_brain,self).__init__('ppo_brain',anum)
     self.fname= fname
     self.update_every = update_every

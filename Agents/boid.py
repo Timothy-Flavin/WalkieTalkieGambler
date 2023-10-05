@@ -57,8 +57,8 @@ class boid(brain):
     #print("Starting action")
     speed_com = self.com(state['view'][anum,0], norm=True)
     alt_com = self.com(state['view'][anum,1], norm=True,invsq=True)
-    memory_com = self.com(state['view'][anum,2], norm=True,invsq=True)
-    trail_com = self.com(state['view'][anum,3], norm=True,invsq=True)
+    memory_com = self.com(state['view'][anum,3], norm=True,invsq=True)
+    trail_com = self.com(state['view'][anum,2], norm=True,invsq=True)
     rand_com = np.random.random(2)-0.5
     #print(state['object_state'][anum]['a_state'])
     center_com = -state['object_state'][anum]['a_state'][0,0:2] 
