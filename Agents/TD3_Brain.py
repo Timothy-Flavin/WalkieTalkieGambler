@@ -8,35 +8,55 @@ from TD3 import TD3
 # define policy network
 
 class td3_brain(brain):
-  def __init__(self, anum,a, sar, state, vectorizer = sar_env.vectorize_state, update_every=32, fname='ppo_brain',action_dim=2,max_act=1):
+  def __init__(self, anum,a, sar, state, vectorizer = sar_env.vectorize_state, update_every=32, fname='ppo_brain',action_dim=2,max_act=1, eps=1.0, eps_decay=0.9995, p_noise=0.2,n_clip=0.4,update_after=25000):
     super(td3_brain,self).__init__('ppo_brain',anum)
     self.fname= fname
     self.update_every = update_every
     self.frame = 0
     self.num_ac = 0
     self.num_up = 0
+    self.max_action = max_act
     self.a_type = a
     self.sar = sar
+    self.update_after = update_after
     self.vectorizer = vectorizer
+    self.action_dim = action_dim
     nn_state = self.vectorizer(state,anum,True)
-    self.td3 = TD3(nn_state.shape[0],action_dim=action_dim,max_action=max_act,discount=0.997,
-                   tau=0.005,policy_noise=0.1,noise_clip=0.3,policy_freq=3)
-    self.buffer = ReplayBuffer(nn_state.shape[0],action_dim,200000)
+    self.td3 = TD3(nn_state.shape[0],action_dim=action_dim,max_action=max_act,discount=0.99,
+                   tau=0.005,policy_noise=p_noise,noise_clip=n_clip,policy_freq=2)
+    self.buffer = ReplayBuffer(nn_state.shape[0],action_dim,1000000)
+    self.eps = eps
+    self.eps_decay = eps_decay
 
   def action(self,state,anum):
+    
     #print(self.vectorizer(state,anum,True))
     #input()
     self.num_ac+=1
     act = np.zeros((1,14+self.sar.max_agents))
-    act[0,0:2] = self.td3.select_action(self.vectorizer(state,anum,True))
+
+    if self.num_ac<self.update_after:
+      act[0,0:self.action_dim] = np.random.normal(0,1,2)
+      return act
+    #print(f"{act[0].shape} {self.td3.select_action(self.vectorizer(state,anum,True)).shape}, {np.random.normal(0,self.eps,self.action_dim).shape}")
+    act[0,0:2] = self.td3.select_action(self.vectorizer(state,anum,True)) + np.random.normal(0,self.eps,self.action_dim)
+    if np.min(act)<-self.max_action or np.max(act)>self.max_action:
+      #print(act)
+      act[0,0:self.action_dim] = np.clip(act[0,0:self.action_dim],-2,2)
+      #print(act)
+    #print('------------------------------------------------------')
     return act
   # This is where a model will be trained if in training mode.
   def update(self,anum,state,action,rewards,state_,terminated,truncated,game_instance):
     self.frame+=1
     self.num_up+=1
-    self.buffer.add(self.vectorizer(state,anum,True),action[0:2],self.vectorizer(state_,anum,True),rewards,(terminated or truncated))
+    
+    #print(self.eps)
+    self.buffer.add(self.vectorizer(state,anum,True),action[0:self.action_dim],self.vectorizer(state_,anum,True),rewards,int(not(terminated or truncated)))
         
-    if self.frame>=self.update_every:
+    if self.frame>=self.update_every and self.num_up>self.update_after:
+      self.eps*=self.eps_decay
+      #print(self.eps)
       self.td3.train(self.buffer,256)
       self.frame=0
   # for algorithms that can only update after an episode

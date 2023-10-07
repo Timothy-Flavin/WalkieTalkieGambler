@@ -78,8 +78,8 @@ class TD3(object):
 		max_action,
 		discount=0.99,
 		tau=0.005,
-		policy_noise=0.2,
-		noise_clip=0.5,
+		policy_noise=0.1,
+		noise_clip=0.2,
 		policy_freq=2
 	):
 
@@ -123,6 +123,7 @@ class TD3(object):
 			).clamp(-self.max_action, self.max_action)
 
 			# Compute the target Q value
+			#print(f"{next_state.shape}, {next_action.shape}")
 			target_Q1, target_Q2 = self.critic_target(next_state, next_action)
 			target_Q = torch.min(target_Q1, target_Q2)
 			target_Q = reward + not_done * self.discount * target_Q

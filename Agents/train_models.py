@@ -106,7 +106,7 @@ def load_models(state):
   brains['td3_boid'] = {}
   end_rewards['td3_boid'] = {}
   for a in agents:
-    brains['td3_boid'][a] = td3_brain(0,a,env,state,sar_env.boid_state,32,'td3_boid')
+    brains['td3_boid'][a] = td3_brain(0,a,env,state,sar_env.boid_state,1,'td3_boid',eps=0.1,eps_decay=1,update_after=25000)
     if not os.path.exists(f"./td3_boid/{a}/"):
       os.makedirs(f"./td3_boid/{a}/")
     try:
@@ -119,7 +119,7 @@ def load_models(state):
   brains[fname] = {}
   end_rewards[fname] = {}
   for a in agents:
-    brains[fname][a] = td3_brain(0,a,env,state,sar_env.vectorize_state_small,32,fname)
+    brains[fname][a] = td3_brain(0,a,env,state,sar_env.vectorize_state_small,1,'td3_boid',eps=0.1,eps_decay=1,update_after=25000)
     if not os.path.exists(f"./{fname}/{a}/"):
       os.makedirs(f"./{fname}/{a}/")
     try:
@@ -146,7 +146,7 @@ def load_models(state):
   brains[fname] = {}
   end_rewards[fname] = {}
   for a in agents:
-    brains[fname][a] = td3_brain(0,a,env,state,sar_env.vectorize_state,32,fname)
+    brains[fname][a] = td3_brain(0,a,env,state,sar_env.vectorize_state,1,'td3_boid',eps=0.1,eps_decay=1,update_after=25000)
     if not os.path.exists(f"./{fname}/{a}/"):
       os.makedirs(f"./{fname}/{a}/")
     try:
@@ -173,12 +173,12 @@ if __name__ == "__main__":
   eps = 0.1
   terminated = False
   # instantiate the policy
-  brain_names = ['boid','ppo_big_brain','ppo_brain','ppo_boid','rand_agent','td3_brain','td3_big_brain','td3_boid']#'torch_sup',
+  brain_names = ['td3_brain','td3_big_brain','td3_boid']#'torch_sup', 'ppo_big_brain','ppo_brain','ppo_boid',
   brains, end_rewards = load_models(state)
   # create an optimizer
   # initialize gamma and stats
   n_episode = -1
-  render_rate = 10# render every render_rate episodes
+  render_rate = 100# render every render_rate episodes
   
   while True:
     print(f"Player {env.player}")
@@ -245,6 +245,9 @@ if __name__ == "__main__":
           sar_env.boid_state(new_state,i,True)
         )# store state, action and reward
         #print(f"new state shape: {new_nn_state[0].shape}")
+        #print(sar_env.boid_state(state,i,True))
+        #print(sar_env.boid_state(new_state,i,True))
+        #input()
         brains[selected_brains[i]][a].update(i,state,np_actions[i],reward[i],new_state,done,_,env)
       state = new_state
       if done:
