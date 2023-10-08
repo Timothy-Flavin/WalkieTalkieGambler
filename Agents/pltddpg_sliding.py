@@ -20,7 +20,7 @@ for a in anames:
     print(npars[a][-1].shape)
 print(files)
 
-factor = 50
+factor = 100
 smooth_arrs = {}
 for a in anames:
   smooth_arrs[a] = []

@@ -11,6 +11,7 @@ from boid import boid
 from ppo_agent import ppo_brain
 from TD3_Brain import td3_brain
 from SAC_brain import SAC_Brain 
+from SAC_radio import SAC_radio
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -210,6 +211,22 @@ def load_models(state, agents, env,brain_names):
       except: 
         end_rewards[fname][a] = []
         print(f"Could not find rewards at: ./{fname}/{a}/rewards.npy")
+  
+  if 'sac_radio' in brain_names:
+    fname = 'sac_radio'
+    brains[fname] = {}
+    end_rewards[fname] = {}
+    for a in agents:
+      brains[fname][a] = SAC_radio(a,0,int(env.vec_state_size),6,sar_env.vectorize_state,device=device, filepath=fname,update_every=5)
+      if not os.path.exists(f"./{fname}/{a}/"): # eps .1 update after 25k
+        os.makedirs(f"./{fname}/{a}/")
+      try:
+        end_rewards[fname][a] = np.load(f"./{fname}/{a}/rewards.npy").tolist()
+      except: 
+        end_rewards[fname][a] = []
+        print(f"Could not find rewards at: ./{fname}/{a}/rewards.npy")
+  
+  
   return brains, end_rewards
 
 if __name__ == "__main__":
@@ -227,7 +244,7 @@ if __name__ == "__main__":
   eps = 0
   terminated = False
   # instantiate the policy
-  brain_names = ['sac_brain','sac_big_brain','sac_boid']#'torch_sup', 'ppo_big_brain','ppo_brain','ppo_boid',
+  brain_names = ['sac_radio','sac_radio','boid']#'torch_sup', 'ppo_big_brain','ppo_brain','ppo_boid',
   brains, end_rewards = load_models(state,agents,env,brain_names)
   # create an optimizer
   # initialize gamma and stats
@@ -286,6 +303,8 @@ if __name__ == "__main__":
           np_actions.append(brains[selected_brains[i]][a].action(state,i))
           #print(f"act shape: {np_actions[-1].shape}")
       np_actions = np.array(np_actions)
+      #print(np_actions)
+      #input()
       np_actions = np_actions.reshape((np_actions.shape[0],np_actions.shape[2]))
       
       new_state, reward, done, _, info = env.step(np_actions)
