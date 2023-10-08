@@ -1,7 +1,9 @@
 import gymnasium as gym
 from swig import *
+import torch
 from TD3_Brain import td3_brain
 from ppo_agent import ppo_brain
+from SAC_brain import SAC_Brain
 import numpy as np
 import matplotlib.pyplot as plt
 import random
@@ -16,9 +18,17 @@ class sa():
 def vec(a,b,c):
     return a
 
-
-brain = td3_brain(0,"drone",sa(-12),observation,vec,1,"./sanity", action_dim=2,max_act=2, eps=0,eps_decay=0.99)
+def smooth(arr):
+    l = int(len(arr)/10)
+    arr = np.array(arr)
+    narr = []
+    for i in range(0,len(arr)-l):
+        narr.append(np.mean(arr[i:i+l]))
+    return narr
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#brain = td3_brain(0,"drone",sa(-12),observation,vec,1,"./sanity", action_dim=2,max_act=2, eps=0,eps_decay=0.99)
 #brain = ppo_brain(0,'drone',sa(-13),observation,vec,124,"./sanity2",action_dim=1)
+brain = SAC_Brain(name="sac",anum=0,state_dim=4,action_dim=2,vec=vec,device=device,max_action=1,update_every=2)
 ep_r = 0
 tot_r = []
 
@@ -44,10 +54,9 @@ while nep < 100000:
         ep_r=0
         
         env.close()
-        if nep %500==0:
-            print(brain.eps)
+        if nep %5000==0:
             env = gym.make('CartPole-v1',render_mode='human')
-            plt.plot(tot_r)
+            plt.plot(smooth(tot_r))
             plt.show()
         else:
             env = gym.make('CartPole-v1')

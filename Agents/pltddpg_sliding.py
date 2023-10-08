@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-fnames = ['boid','td3_boid','td3_brain','td3_big_brain','rand_agent']#'ppo_boid','ppo_brain','ppo_big_brain'
+fnames = ['boid','sac_boid','sac_brain','sac_big_brain','rand_agent']#'ppo_boid','ppo_brain','ppo_big_brain'
 
 anames = ['Human','RoboDog','Drone']
 npars = {}
