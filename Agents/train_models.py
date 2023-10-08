@@ -233,7 +233,7 @@ if __name__ == "__main__":
   player_num = 0
   agents = ["Human","RoboDog","Drone"]
   max_agents = len(agents)
-  pois = ["Child"]
+  pois = ["Child","Child","Adult","Adult","Adult"]
   premade_map = np.load("../LevelGen/Island/Map.npy")
   env = sar_env(max_agents=3,display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,seed=random.randint(0,10000),player=player_num,explore_multiplier=0.1)
   state, info = env.start()
@@ -244,7 +244,7 @@ if __name__ == "__main__":
   eps = 0
   terminated = False
   # instantiate the policy
-  brain_names = ['sac_radio','sac_radio','boid']#'torch_sup', 'ppo_big_brain','ppo_brain','ppo_boid',
+  brain_names = ['sac_radio','sac_radio','boid','boid','sac_big_brain']#'torch_sup', 'ppo_big_brain','ppo_brain','ppo_boid',
   brains, end_rewards = load_models(state,agents,env,brain_names)
   # create an optimizer
   # initialize gamma and stats
@@ -278,8 +278,8 @@ if __name__ == "__main__":
     tot_r = np.zeros(3)
     # reset environment
     state, info = env.start()
-    env.pois[0].hidden=False
-    env.pois[0].saved=True
+    #env.pois[0].hidden=False
+    #env.pois[0].saved=True
     env.debug_render = True
     print('env: ',end='')
     for i in range(len(agents)):
