@@ -26,7 +26,7 @@ class Actor(nn.Module):
   def forward(self, state):
     a = F.relu(self.l1(state))
     a = F.relu(self.l2(a))
-    return self.max_action * torch.tanh(self.l3(a)), self.l4(a)
+    return self.l3(a), self.l4(a)
 
 
 class Critic(nn.Module):
@@ -104,7 +104,7 @@ class SAC_Brain(brain):
 
       #var_mat = torch.square(prob_stds)#.unsqueeze(dim=0)
       dist = Normal(prob_means, prob_stds)
-      action = dist.sample().to('cpu').numpy() #TODO make this not be so ugly
+      action = (self.max_action * torch.tanh(dist.sample())).to('cpu').numpy() #TODO make this not be so ugly
       act = np.zeros((1,14+3))
       act[0,0:2] = action
     return act
