@@ -31,7 +31,7 @@
     "name": "shore",
     "color": [255,255,0,255],
     "flammable": false,
-    "altitude": 1.0,
+    "altitude": 1.1,
     "cover":0.0
   },
   {
@@ -45,7 +45,7 @@
     "name": "forest",
     "color": [0,124,0,255],
     "flammable": true,
-    "altitude": 1.0,
+    "altitude": 0.9,
     "cover":0.0
   }
 ]

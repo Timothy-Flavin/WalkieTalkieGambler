@@ -16,7 +16,9 @@ from SAC_radio import SAC_radio
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-
+# Each model implements the brain.py interface but they have
+# different hyper parameters so this function loads all the 
+# required models in by name
 def load_models(state, agents, env,brain_names):
   brains = {}
   end_rewards = {}
@@ -267,65 +269,50 @@ if __name__ == "__main__":
         #selected_brains[-1] = 'boid'
     print(f"selected brains: {selected_brains}")
     if n_episode%render_rate==0:
-      #plt.plot(envrew)
-      #plt.title("rewards over time")
-      #plt.show()
-      
       env.display=True
-      
     else:
       env.display=False
     tot_r = np.zeros(3)
     # reset environment
     state, info = env.start()
-    #env.pois[0].hidden=False
-    #env.pois[0].saved=True
     env.debug_render = True
     print('env: ',end='')
     for i in range(len(agents)):
       env.agents[i].brain_name = selected_brains[i]
-      #print(f'{i}: {env.agents[i].name}',end='')
 
     while True:
       # render episode every render_rate epsiodes
       # calculate probabilities of taking each action
-      #print(state['object_state'])
       np_actions = []
       for i,a in enumerate(agents):
         brains[selected_brains[i]][a].dead = info.agents[i].destroyed
+        
+        # If an agent is dead just give it 0's for it's actions
         if brains[selected_brains[i]][a].dead:
           np_actions.append(np.zeros((1,14+max_agents)))
           if selected_brains[i] in ['ppo_brain','ppo_boid','ppo_big_brain']:
             brains[selected_brains[i]][a].action(state,i)
           
         else:
-          #print(sar_env.boid_state(state,i,True)[0:8])
           np_actions.append(brains[selected_brains[i]][a].action(state,i))
-          #print(f"act shape: {np_actions[-1].shape}")
       np_actions = np.array(np_actions)
-      #print(np_actions)
-      #input()
+
+      # the brains I made assume states are given in a batch so they return
+      # a batch of actions. Because this is a "batch" of size 1, we remove a
+      # dimension
       np_actions = np_actions.reshape((np_actions.shape[0],np_actions.shape[2]))
       
       new_state, reward, done, _, info = env.step(np_actions)
-      #print(new_state['view'][0])
-      #print(reward)
-      #input()
       tot_r += reward
-      new_nn_state=[]
+
       for i,a in enumerate(agents):
-        new_nn_state.append(
-          sar_env.boid_state(new_state,i,True)
-        )# store state, action and reward
-        #print(f"new state shape: {new_nn_state[0].shape}")
-        #print(sar_env.boid_state(state,i,True))
-        #print(sar_env.boid_state(new_state,i,True))
-        #input()
         brains[selected_brains[i]][a].update(i,state,np_actions[i],reward[i],new_state,done,_,env)
+      
       state = new_state
       if done:
         break
-    #print(f"eps: {brains['ddpg'][agents[0]].eps}")
+
+    # Save reward history
     for i,a in enumerate(agents):
       end_rewards[selected_brains[i]][a].append(tot_r[i])
       print(f"{a}({selected_brains[i]}) r: {tot_r[i]}")
@@ -333,5 +320,3 @@ if __name__ == "__main__":
       for b in brain_names:
         brains[b][a].checkpoint()
         np.save(f"./{b}/{a}/rewards.npy",np.array(end_rewards[b][a]))
-    #for a in agents:
-      #np.save(f"./boid/{a}/rewards.npy",np.array(end_rewards['boid'][a]))
