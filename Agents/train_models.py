@@ -239,11 +239,6 @@ if __name__ == "__main__":
   premade_map = np.load("../LevelGen/Island/Map.npy")
   env = sar_env(max_agents=3,display=True, tile_map=premade_map, agent_names=agents, poi_names=pois,seed=random.randint(0,10000),player=player_num,explore_multiplier=0.1)
   state, info = env.start()
-  st = sar_env.boid_state(state,0,True)
-  print(f"Message shape: {state['radio']['message'].shape}")
-  print(f"State shape: {st.shape}")
-
-  eps = 0
   terminated = False
   # instantiate the policy
   brain_names = ['sac_radio','sac_radio','boid','boid','sac_big_brain']#'torch_sup', 'ppo_big_brain','ppo_brain','ppo_boid',
@@ -251,7 +246,7 @@ if __name__ == "__main__":
   # create an optimizer
   # initialize gamma and stats
   n_episode = -1
-  render_rate = 100# render every render_rate episodes
+  render_rate = 1# render every render_rate episodes
   
   while True:
     print(f"Player {env.player}")
