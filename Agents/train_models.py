@@ -41,7 +41,7 @@ def load_models(state, agents, env,brain_names):
                           eps=eps,
                           eps_decay=0.9990)
       if not os.path.exists(f"./ddpg/{a}/"):
-        os.mkdir(f"./ddpg/{a}/")
+        os.makedirs(f"./ddpg/{a}/")
       try:
         end_rewards['ddpg'][a] = np.load(f"./ddpg/{a}/rewards.npy").tolist()
       except: 
@@ -58,7 +58,7 @@ def load_models(state, agents, env,brain_names):
                           data_dir=f"./recorded_data/{a}",
                           directory=f"./torch_sup/{a}/")
       if not os.path.exists(f"./torch_sup/{a}/"):
-        os.mkdir(f"./torch_sup/{a}/")
+        os.makedirs(f"./torch_sup/{a}/")
       try:
         end_rewards['torch_sup'][a] = np.load(f"./torch_sup/{a}/rewards.npy").tolist()
       except: 
@@ -71,7 +71,7 @@ def load_models(state, agents, env,brain_names):
     for a in agents:
       brains['rand_agent'][a] = rand_agent(env)
       if not os.path.exists(f"./rand_agent/{a}/"):
-        os.mkdir(f"./rand_agent/{a}/")
+        os.makedirs(f"./rand_agent/{a}/")
       try:
         end_rewards['rand_agent'][a] = np.load(f"./rand_agent/{a}/rewards.npy").tolist()
       except: 
@@ -84,7 +84,7 @@ def load_models(state, agents, env,brain_names):
     for a in agents:
       brains['boid'][a] = boid(env)
       if not os.path.exists(f"./boid/{a}/"):
-        os.mkdir(f"./boid/{a}/")
+        os.makedirs(f"./boid/{a}/")
       try:
         end_rewards['boid'][a] = np.load(f"./boid/{a}/rewards.npy").tolist()
       except: 
