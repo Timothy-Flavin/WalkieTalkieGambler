@@ -77,7 +77,7 @@ class boid(brain):
     action[0,0:2] = speed_com+alt_com-memory_com+rand_com+center_com+poi_dir*5*poi_mag+trail_com
     #print(action.shape)
     for i in range(5):
-      if state['radio']["message_legality"][anum][i]>0:
+      if state['legal_messages'][anum][i]>0:
         action[0,2] = 1
         action[0,3] = action[0,0]
         action[0,4] = action[0,1]

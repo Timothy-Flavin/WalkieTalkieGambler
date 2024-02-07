@@ -116,7 +116,7 @@ class SAC_radio(brain):
   def action(self,state,anum):
     vec_state = self.vec(state,self.anum,True)
     with torch.no_grad():
-      legality = torch.FloatTensor(state['radio']['message_legality'][anum])[None,:].to(self.device)
+      legality = torch.FloatTensor(state['legal_messages'][anum])[None,:].to(self.device)
       #print(torch.FloatTensor(vec_state)[None,:].to(self.device))
       prob_means,prob_log_stds, msgp, targp = self.actor(torch.FloatTensor(vec_state)[None,:].to(self.device),legality)
       prob_log_stds = torch.clamp(prob_log_stds,self.LOG_STD_MIN,self.LOG_STD_MAX)
@@ -216,11 +216,11 @@ class SAC_radio(brain):
   def update(self,anum,state,action,rewards,state_,terminated,truncated,game_instance):
     self.up_num +=1
     self.vec(state,anum,True)
-    legality = state['radio']['message_legality'][anum]
+    legality = state['legal_messages'][anum]
     self.buffer.add(self.vec(state,anum,True),action,self.vec(state_,anum,True),rewards,int((terminated or truncated)),legality)
     
     if self.up_num%self.update_every==0:
-      #legality = torch.FloatTensor(state['radio']['message_legality'][anum])[None,:].to(self.device)
+      #legality = torch.FloatTensor(state['legal_messages'][anum])[None,:].to(self.device)
       states,actions,states_,rewards,dones, legalitys = self.buffer.sample(256)
       self.up_num = 0
       
