@@ -181,6 +181,10 @@ class SAC_radio(brain):
 
     self.type_noise = Normal(torch.zeros(8),torch.ones(8)*0.1)
     self.targ_noise = Normal(torch.zeros(3),torch.ones(3)*0.1)
+
+    for name,param in self.actor.named_parameters():
+          print(name)
+          print(param.data)
     
   def __action__(self,state, legality=None):
     #prob_means,prob_log_stds, msgp,targp = self.actor(state,legality)
