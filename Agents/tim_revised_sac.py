@@ -9,6 +9,7 @@ import traceback
 
 import numpy as np
 import matplotlib.pyplot as plt
+import itertools 
 
 from brain import brain
 
@@ -182,6 +183,8 @@ class SAC_radio(brain):
     self.type_noise = Normal(torch.zeros(8),torch.ones(8)*0.1)
     self.targ_noise = Normal(torch.zeros(3),torch.ones(3)*0.1)
 
+    self.q_params = itertools.chain(self.critic_env.parameters(), self.critic_msg.parameters())
+
     for name,param in self.actor.named_parameters():
           print(name)
           print(param.data)
@@ -198,12 +201,16 @@ class SAC_radio(brain):
     command_stds = torch.exp(command_log_stds)
     command_dist = Normal(command_means, command_stds)
     
-    action = torch.tanh(action_dist.rsample())#self.max_action* #TODO make this not be so ugly
+    action = action_dist.rsample()#self.max_action* #TODO make this not be so ugly
     log_action = action_dist.log_prob(action).sum(axis=-1)
-    command = torch.tanh(command_dist.rsample())
+    log_action -= (2*(np.log(2) - action - F.softplus(-2*action))).sum(axis=1)
+    command = command_dist.rsample()
     log_command = command_dist.log_prob(command).sum(axis=-1)
+    log_command -= (2*(np.log(2) - command - F.softplus(-2*command))).sum(axis=1)
     #command[:,2]+=1 
     #command[:,2]*=self.max_action/2
+    action = torch.tanh(action)
+    command = torch.tanh(command)
     
     return action, log_action, command, log_command, talk, talk_log, msg, msg_log, targ, targ_log 
 
@@ -230,25 +237,17 @@ class SAC_radio(brain):
       final_action = torch.cat((action.cpu(),command.cpu(),talk.cpu()[None,:],F.one_hot(msg.cpu(),num_classes=8),F.one_hot(targ.cpu(),num_classes=self.actor.max_agents)),1).numpy()
       #print(f"final action shape {final_action.shape}")
       return final_action
-
   
   def q_loss(self,states,actions,states_,rewards,dones,legality,anum,critic):
-    #print(states.shape)
-    #print(actions.shape)
     Q1 = critic.Q1(states,actions)
-    #Q3 = self.critic_msg.Q1(states,actions)
     
     with torch.no_grad():
       #Get the distribution
       #actions_, act_log_prob, mtp, targp 
       actions_,act_log_prob,command,command_log,talk,talk_log,msg,msg_log,targ,targ_log = self.__action__(states_,legality)
-      #action,action_log,command,command_log,talk,talk_log,msg,msg_log,targ,targ_log
-      #if self.radio:
-        #actions_ = torch.cat([actions_, send, msg], 1)\
-      #print(msg)
+
       msg = F.one_hot(msg,8).float()
       targ = F.one_hot(targ,self.actor.max_agents).float()
-      #print(msg)
       msg[talk<0]*=0. # so the Q network get's zeros instead of all 1s. it was 1s earlier to not change log prob
       targ[talk<0]*=0.
       self.type_noise = torch.normal(mean=0, std=self.multinomial_noise, size=msg.shape).to(self.device)
@@ -256,19 +255,22 @@ class SAC_radio(brain):
       self.targ_noise = torch.normal(mean=0, std=self.multinomial_noise, size=targ.shape).to(self.device)
       targ += self.targ_noise
       talk = talk.float()[:,None]
-      #print(f"shapes actions: {actions_.shape} command: {command.shape}, talk: {talk.shape}, msg {msg.shape}, targ {targ.shape} ")
       noisy_action = torch.cat((actions_,command,talk,msg,targ),1)
       target_Q1, target_Q2 = self.critic_env(states_, noisy_action)
-      #target_Q3, target_Q4 = self.critic_env(states_, noisy_action)
       target_Q = torch.min(target_Q1, target_Q2)
-      #target_Q_msg = torch.min(target_Q3, target_Q4)
 
-      target = rewards+self.gamma*(1-dones)*target_Q#(target_Q_env-self.trade_off*(act_log_prob+command_log+talk_log,msg_log,targ_log))
+      target = rewards+self.gamma*(1-dones)*(target_Q-self.trade_off*(act_log_prob+command_log))#(target_Q_env-self.trade_off*(act_log_prob+command_log+talk_log,msg_log,targ_log))
       #target_msg = rewards+self.gamma*(1-dones)*target_Q_msg#-self.trade_off*(act_log_prob+command_log+talk_log,msg_log,targ_log))
-    critic_loss1 = ((Q1 - target)**2).mean()
+    critic_loss = ((Q1 - target)**2).mean()
+
+    if abs(critic_loss.item())>1000:
+      print(f"log prob sum: ({act_log_prob[0:10]}+{command_log[0:10]}+{talk_log[0:10]}+{msg_log[0:10]}+{targ_log[0:10]})") 
+      print(f"rewards: {rewards}") 
+      print(f"target q: {target_Q}") 
+      input("say something")
     #critic_loss2 = ((Q3 - target_msg)**2).mean()
     
-    return critic_loss1
+    return critic_loss
 
   def a_loss(self, states, actions, states_, rewards, dones,legality, anum):
     action,action_log,command,command_log,talk,talk_log,msg,msg_log,targ,targ_log = self.__action__(states, legality)
@@ -278,18 +280,24 @@ class SAC_radio(brain):
     targ=targ*tk
 
     act = torch.cat((action,command,targ.float()[:,None],F.one_hot(msg,8),F.one_hot(targ,self.actor.max_agents)),1)
+    #for p in self.q_params:
+    #  p.requires_grad = False
     Q1, Q2 = self.critic_env(states,act, grad=False)
 
     Q3, Q4 = self.critic_msg(states,act, grad=False)
-    Q_env = torch.min(Q1,Q2)
-    Q_msg = torch.min(Q3,Q4)
+    #print(Q1)
+    #print(Q2)
+    Q_env = torch.minimum(Q1,Q2)
+    Q_msg = torch.minimum(Q3,Q4)
 
-    Q_env =- Q_env.min(1,keepdim=True)[0]
-    Q_env /= torch.maximum(Q_env.max(1,keepdim=True)[0],torch.ones(Q_env.shape).to(self.device)*0.0001)#(Q_env-torch.mean(Q_env,0))/torch.minimum(torch.std(Q_env,0),torch.ones(Q_env.shape).to(self.device)/1000) #TODO make something better
-    Q_msg =  Q_msg.min(1,keepdim=True)[0]
-    Q_msg /= torch.maximum(Q_msg.max(1,keepdim=True)[0],torch.ones(Q_env.shape).to(self.device)*0.0001)#(Q_msg-torch.mean(Q_msg,0))/torch.minimum(torch.std(Q_msg,0),torch.ones(Q_msg.shape).to(self.device)/1000) #TODO do better
+    #print(Q_env)
+    #print(Q_env.min().item())
+    Q_env -= Q_env.min().item()
+    Q_env /= max(Q_env.max().item(),0.0001)#torch.maximum(Q_env.max(1,keepdim=True)[0],torch.ones(Q_env.shape).to(self.device)*0.0001)#(Q_env-torch.mean(Q_env,0))/torch.minimum(torch.std(Q_env,0),torch.ones(Q_env.shape).to(self.device)/1000) #TODO make something better
+    Q_msg -= Q_msg.min().item()
+    Q_msg /= max(Q_msg.max().item(),0.0001)#torch.maximum(Q_msg.max(1,keepdim=True)[0],torch.ones(Q_msg.shape).to(self.device)*0.0001)#(Q_msg-torch.mean(Q_msg,0))/torch.minimum(torch.std(Q_msg,0),torch.ones(Q_msg.shape).to(self.device)/1000) #TODO do better
 
-    action_loss = (-self.trade_off*(action_log+command_log+talk_log+msg_log+targ_log) - Q_env).mean()
+    action_loss = (self.trade_off*(action_log) - Q_env).mean()
     
     states_where_we_talked = actions[:,3]>0.5
     act_cats = torch.argmax(actions[:,6:6+8],dim=1)
@@ -314,11 +322,15 @@ class SAC_radio(brain):
     #print(f"message loss: {msg_loss.cpu().item()}")
     #print(f"message loss c: {msg_loss_c.cpu().item()}")
     #print(f"target loss: {targ_loss.cpu().item()}")
-    #print(f"target loss c: {targ_loss_c.cpu().item()}")
+    # print(f"target loss c: {targ_loss_c.cpu().item()}")
 
+    #print(Q_env[0:10])
+    #print(Q_msg[0:10])
+    # input()
     #print(f"Command states: {command_states}")
     #print(f"Message not commanded: {msg_not_command}")
-
+    #for p in self.q_params:
+    #  p.requires_grad = True
     return action_loss, command_loss, going_loss, talk_loss, msg_loss, msg_loss_c, targ_loss, targ_loss_c
 
 
@@ -332,7 +344,7 @@ class SAC_radio(brain):
     if self.up_num%self.update_every==0:
       #legality = torch.FloatTensor(state['legal_messages'][anum])[None,:].to(self.device)
       states,actions,states_,rewards,dones, legalitys = self.buffer.sample(256)
-      self.up_num = 0
+      #self.up_num = 0
       
       critic_loss1 = self.q_loss(states,actions,states_,rewards,dones,legalitys,anum,self.critic_env)
       self.critic_env_optimizer.zero_grad()
@@ -340,7 +352,7 @@ class SAC_radio(brain):
       self.critic_env_optimizer.step()
 
       #print(states_[:,-self.actor.max_agents])
-      critic_loss2 = self.q_loss(states,actions,states_,torch.sum(states_[:,-self.actor.max_agents]),dones,legalitys,anum, self.critic_msg)
+      critic_loss2 = self.q_loss(states,actions,states_,torch.sum(states_[:,-self.actor.max_agents:],1),dones,legalitys,anum, self.critic_msg)
       self.critic_msg_optimizer.zero_grad()
       critic_loss2.backward()
       self.critic_msg_optimizer.step()
@@ -369,7 +381,23 @@ class SAC_radio(brain):
         targ_loss_c.cpu().item(),
       ])
       #print(f"Loss history")
-      #print(np.array(self.loss_history))
+      strings = ["critic_loss1",
+        "critic_loss2",
+        "action_loss", 
+        "command_loss", 
+        "going_loss", 
+        "talk_loss", 
+        "msg_loss", 
+        "msg_loss_c", 
+        "targ_loss", 
+        "targ_loss_c",]
+      lh = np.array(self.loss_history)
+      if int(self.up_num/self.update_every)%1000 == 0:
+        for l in range(lh.shape[1]):
+          plt.plot(lh[:,l], label=strings[l])
+        plt.legend()
+        plt.show()
+
       try:
         self.actor_optimizer.zero_grad()
         action_loss.backward(retain_graph=True) #TODO matthew aggregate these (no questions allowed)
@@ -383,7 +411,7 @@ class SAC_radio(brain):
         self.actor_optimizer.step()
       except Exception as e:
         print(e)
-        print(f"States {states[0:5]},\n actions: {actions[0:5]},\n next_states: {states_[0:5]},\n rewards: {rewards[0:5]},\n Dones: {dones[0:5]},\n legality: {legalitys[0:5]},anum: {anum}")
+        print(f"States {states[0:5].sum()} {states[0:5]},\n actions: {actions[0:5]},\n next_states: {states_[0:5]},\n rewards: {rewards[0:5]},\n Dones: {dones[0:5]},\n legality: {legalitys[0:5]},anum: {anum}")
         for name,param in self.actor.named_parameters():
           print(name)
           print(param.data)
