@@ -109,7 +109,7 @@ class SAC_radio(brain):
     self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=3e-4)
     self.critic_target = copy.deepcopy(self.critic)
     
-    self.buffer = ReplayBuffer(state_dim,action_dim, 500000)
+    self.buffer = ReplayBuffer(state_dim,action_dim, 100000)
     self.norm = Normal(torch.zeros(self.action_dim),torch.ones(self.action_dim))
     self.type_noise = Normal(torch.zeros(8),torch.ones(8)*0.2)
     self.targ_noise = Normal(torch.zeros(3),torch.ones(3)*0.2)
