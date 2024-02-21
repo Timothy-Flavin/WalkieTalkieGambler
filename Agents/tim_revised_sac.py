@@ -163,6 +163,8 @@ class SAC_radio(brain):
     self.device = device
     self.multinomial_noise = multinomial_noise
 
+    self.loss_history = []
+
     self.actor = Actor(state_dim,action_dim,max_action,device=device)
     self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=3e-4)
     
@@ -283,7 +285,7 @@ class SAC_radio(brain):
     Q_msg =  Q_msg.min(1,keepdim=True)[0]
     Q_msg /= torch.maximum(Q_msg.max(1,keepdim=True)[0],torch.ones(Q_env.shape).to(self.device)*0.0001)#(Q_msg-torch.mean(Q_msg,0))/torch.minimum(torch.std(Q_msg,0),torch.ones(Q_msg.shape).to(self.device)/1000) #TODO do better
 
-    action_loss = (self.trade_off*(action_log) - Q_env).mean() 
+    action_loss = (-self.trade_off*(action_log+command_log+talk_log+msg_log+targ_log) - Q_env).mean()
     
     states_where_we_talked = actions[:,3]>0.5
     act_cats = torch.argmax(actions[:,6:6+8],dim=1)
@@ -294,12 +296,24 @@ class SAC_radio(brain):
     going_loss = (self.trade_off*(command_log[going_states]) -Q_env).mean() 
 
     talk_loss = (-Q_env*talk_log).mean() #Q_env ro Q_msg test out both TODO
-    msg_loss_c = (-Q_msg[command_states]*msg_log[command_states] - self.trade_off*msg_log[command_states]).mean() #Q_env ro Q_msg test out both TODO
-    targ_loss_c = (-Q_msg[command_states]*targ_log[command_states] - self.trade_off*msg_log[command_states]).mean() #Q_env ro Q_msg test out both TODO
+    msg_loss_c = (-Q_msg[command_states]*msg_log[command_states] ).mean() #Q_env ro Q_msg test out both TODO + self.trade_off*msg_log[command_states]
+    targ_loss_c = (-Q_msg[command_states]*targ_log[command_states] ).mean() #Q_env ro Q_msg test out both TODO + self.trade_off*msg_log[command_states]
 
     msg_not_command = torch.logical_and(talk,torch.logical_not(command_states))
-    msg_loss = (-Q_env[msg_not_command]*msg_log[msg_not_command]- self.trade_off*msg_log[msg_not_command]).mean() #Q_env ro Q_msg test out both TODO
-    targ_loss = (-Q_env[msg_not_command]*targ_log[msg_not_command]- self.trade_off*msg_log[msg_not_command]).mean() #Q_env ro Q_msg test out both TODO
+    msg_loss = (-Q_env[msg_not_command]*msg_log[msg_not_command] ).mean() #Q_env ro Q_msg test out both TODO + self.trade_off*msg_log[msg_not_command]
+    targ_loss = (-Q_env[msg_not_command]*targ_log[msg_not_command] ).mean() #Q_env ro Q_msg test out both TODO + self.trade_off*msg_log[msg_not_command]
+
+    #print(f"Action loss: {action_loss.cpu().item()}")
+    #print(f"command loss: {command_loss.cpu().item()}")
+    #print(f"going loss: {going_loss.cpu().item()}")
+    #print(f"talk loss: {talk_loss.cpu().item()}")
+    #print(f"message loss: {msg_loss.cpu().item()}")
+    #print(f"message loss c: {msg_loss_c.cpu().item()}")
+    #print(f"target loss: {targ_loss.cpu().item()}")
+    #print(f"target loss c: {targ_loss_c.cpu().item()}")
+
+    #print(f"Command states: {command_states}")
+    #print(f"Message not commanded: {msg_not_command}")
 
     return action_loss, command_loss, going_loss, talk_loss, msg_loss, msg_loss_c, targ_loss, targ_loss_c
 
@@ -316,15 +330,15 @@ class SAC_radio(brain):
       states,actions,states_,rewards,dones, legalitys = self.buffer.sample(256)
       self.up_num = 0
       
-      critic_loss = self.q_loss(states,actions,states_,rewards,dones,legalitys,anum,self.critic_env)
+      critic_loss1 = self.q_loss(states,actions,states_,rewards,dones,legalitys,anum,self.critic_env)
       self.critic_env_optimizer.zero_grad()
-      critic_loss.backward()
+      critic_loss1.backward()
       self.critic_env_optimizer.step()
 
       #print(states_[:,-self.actor.max_agents])
-      critic_loss = self.q_loss(states,actions,states_,torch.sum(states_[:,-self.actor.max_agents]),dones,legalitys,anum, self.critic_msg)
+      critic_loss2 = self.q_loss(states,actions,states_,torch.sum(states_[:,-self.actor.max_agents]),dones,legalitys,anum, self.critic_msg)
       self.critic_msg_optimizer.zero_grad()
-      critic_loss.backward()
+      critic_loss2.backward()
       self.critic_msg_optimizer.step()
 
       #update the critic
@@ -338,6 +352,20 @@ class SAC_radio(brain):
        targ_loss_c,
        ) = self.a_loss(states,actions,states_,rewards,dones,legalitys,anum)
       
+      self.loss_history.append([
+        critic_loss1.cpu().item(),
+        critic_loss2.cpu().item(),
+        action_loss.cpu().item(), 
+        command_loss.cpu().item(), 
+        going_loss.cpu().item(), 
+        talk_loss.cpu().item(), 
+        msg_loss.cpu().item(), 
+        msg_loss_c.cpu().item(), 
+        targ_loss.cpu().item(), 
+        targ_loss_c.cpu().item(),
+      ])
+      #print(f"Loss history")
+      #print(np.array(self.loss_history))
       try:
         self.actor_optimizer.zero_grad()
         action_loss.backward(retain_graph=True) #TODO matthew aggregate these (no questions allowed)
@@ -351,11 +379,11 @@ class SAC_radio(brain):
         self.actor_optimizer.step()
       except Exception as e:
         print(e)
-        print(f"States {states},\n actions: {actions},\n next_states: {states_},\n rewards: {rewards},\n Dones: {dones},\n legality: {legalitys},anum: {anum}")
-        for name,param in self.actor.parameters():
+        print(f"States {states[0:5]},\n actions: {actions[0:5]},\n next_states: {states_[0:5]},\n rewards: {rewards[0:5]},\n Dones: {dones[0:5]},\n legality: {legalitys[0:5]},anum: {anum}")
+        for name,param in self.actor.named_parameters():
           print(name)
           print(param.data)
-        input()
+        #input()
         print(traceback.print_exception(e))
 
       # spinning up
