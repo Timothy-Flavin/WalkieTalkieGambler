@@ -18,50 +18,36 @@ the array would be of floats where message >0.5 is true and less is false.
 
 State: 
 {
-  "view":[
+  "view":Shape:(num_agents,4,self.max_agent_view_dist*2+1,self.max_agent_view_dist*2+1)[
             num_agents,
-            self.max_agent_view_dist*2+1,
-            self.max_agent_view_dist*2+1
+            4 speed,altitude,survivor_tracks,recency_of_visiting
+            self.max_agent_view_dist*2+1, rows
+            self.max_agent_view_dist*2+1 cols
           ]
   "object_state": [num_agents]
     {
       "a_state": float [max_agents,6+num_agent_types], 
       "s_state": float [x,y,age,recency], 
       "p_state": float [x,y,destroyed,saved,age,recency]
-    }
-  "memory": [num_agents] [height,width,2],
-  "radio":
-  {
-    "message": [
-      0 x_location,
-      1 y_location,
-      2 dx, 
-      3 dy, 
-      4 magnitude
-      5:14 message_type, 
-      14:14+max_agents   one_hot_target
-      14+max_agents:14+max_agents+agent_types   one_hot agent_type
-    ],
-    "sender":[
-      a_num, one-hot
-      a_type, one-hot
-      brain_type, int a_type + brain_type has to be a unique key
-    ],
-    "queue_state":[
-      num_agents,
-      3 (message sent, message denied, message not tried)
-    ]
-    "legal_messages":[
-      num_agents,
-      8 (1's are legal 0s are not)
-    ]
-  }
+    },
+  "legal_messages": Shape(num_agents,8)[binary],
+  "pending_commands": Shape(num_agents,num_agents,4)[
+    row: agent being commanded, 
+    col: agent recieving commands from
+    4 numbers: 
+      1. command recieved? boolean
+      2. duration of the command
+      3,4. x and y direction of command
+    [[1,5,-0.5,0.5],[...],[...]],
+    [...],
+    [...]
+  ] # row agent is being commanded by col agent if 1 so agent 1 is being commanded by itself and 2
+  "listened":Shape(max_agents,max_agents),[
+    row: agent being listened to, agent's who may have been commanded
+  ]
 }
 
 
 
 
-python -m build
-python -m twine upload --repository testpypi dist/*
-pip uninstall halsarc
-pip install -i https://test.pypi.org/simple/ halsarc
+

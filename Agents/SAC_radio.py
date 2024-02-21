@@ -113,6 +113,7 @@ class SAC_radio(brain):
     self.norm = Normal(torch.zeros(self.action_dim),torch.ones(self.action_dim))
     self.type_noise = Normal(torch.zeros(8),torch.ones(8)*0.2)
     self.targ_noise = Normal(torch.zeros(3),torch.ones(3)*0.2)
+    
   def action(self,state,anum):
     vec_state = self.vec(state,self.anum,True)
     with torch.no_grad():

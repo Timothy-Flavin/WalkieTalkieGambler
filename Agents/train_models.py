@@ -11,7 +11,7 @@ from boid import boid
 from ppo_agent import ppo_brain
 from TD3_Brain import td3_brain
 from SAC_brain import SAC_Brain 
-from SAC_radio import SAC_radio
+from tim_revised_sac import SAC_radio
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -219,7 +219,7 @@ def load_models(state, agents, env,brain_names):
     brains[fname] = {}
     end_rewards[fname] = {}
     for a in agents:
-      brains[fname][a] = SAC_radio(a,0,int(env.vec_state_size),6,sar_env.vectorize_state,device=device, filepath=fname,update_every=5)
+      brains[fname][a] = SAC_radio(a,0,int(env.vec_state_size),2,sar_env.vectorize_state,device=device, filepath=fname,update_every=5)
       if not os.path.exists(f"./{fname}/{a}/"): # eps .1 update after 25k
         os.makedirs(f"./{fname}/{a}/")
       try:
@@ -241,7 +241,7 @@ if __name__ == "__main__":
   state, info = env.start()
   terminated = False
   # instantiate the policy
-  brain_names = ['sac_radio','sac_radio','boid','boid','sac_big_brain']#'torch_sup', 'ppo_big_brain','ppo_brain','ppo_boid',
+  brain_names = ['sac_radio','sac_radio']#,'boid','boid','sac_big_brain']#'torch_sup', 'ppo_big_brain','ppo_brain','ppo_boid',
   brains, end_rewards = load_models(state,agents,env,brain_names)
   # create an optimizer
   # initialize gamma and stats
