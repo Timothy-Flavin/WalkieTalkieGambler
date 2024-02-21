@@ -241,12 +241,13 @@ if __name__ == "__main__":
   state, info = env.start()
   terminated = False
   # instantiate the policy
-  brain_names = ['sac_radio','sac_radio']#,'boid','boid','sac_big_brain']#'torch_sup', 'ppo_big_brain','ppo_brain','ppo_boid',
+  brain_names = ['sac_radio','sac_radio','boid','boid']#,'sac_big_brain']#'torch_sup', 'ppo_big_brain','ppo_brain','ppo_boid',
   brains, end_rewards = load_models(state,agents,env,brain_names)
   # create an optimizer
   # initialize gamma and stats
+  print(end_rewards)
   n_episode = -1
-  render_rate = 1# render every render_rate episodes
+  render_rate = 10# render every render_rate episodes
   
   while True:
     print(f"Player {env.player}")
@@ -296,7 +297,8 @@ if __name__ == "__main__":
       # a batch of actions. Because this is a "batch" of size 1, we remove a
       # dimension
       np_actions = np_actions.reshape((np_actions.shape[0],np_actions.shape[2]))
-      
+      #if n_episode%render_rate==0:
+      #  print(np_actions)
       new_state, reward, done, _, info = env.step(np_actions)
       tot_r += reward
 
@@ -312,6 +314,8 @@ if __name__ == "__main__":
       end_rewards[selected_brains[i]][a].append(tot_r[i])
       print(f"{a}({selected_brains[i]}) r: {tot_r[i]}")
     for a in agents:
-      for b in brain_names:
+      for b in set(brain_names):
         brains[b][a].checkpoint()
         np.save(f"./{b}/{a}/rewards.npy",np.array(end_rewards[b][a]))
+
+        #print(f"saving {np.array(end_rewards[b][a])} to ./{b}/{a}/rewards.npy")

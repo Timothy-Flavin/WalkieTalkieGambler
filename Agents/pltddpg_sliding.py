@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-fnames = ['boid','sac_big_brain','sac_radio']#'ppo_boid','ppo_brain','ppo_big_brain'
+fnames = ['boid','sac_radio']#'ppo_boid','ppo_brain','ppo_big_brain'
 
 anames = ['Human','RoboDog','Drone']
 npars = {}
@@ -20,7 +20,7 @@ for a in anames:
     print(npars[a][-1].shape)
 print(files)
 
-factor = 100
+factor = 5
 smooth_arrs = {}
 for a in anames:
   smooth_arrs[a] = []

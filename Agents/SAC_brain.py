@@ -67,7 +67,7 @@ class Critic(nn.Module):
 class SAC_Brain(brain):
   def __init__(self, name, anum, state_dim, action_dim, vec, device='cpu', trade_off=0.1, max_action=1, max_std=1, update_every=1,gamma=0.99, tau=0.995, filepath="sac"):
     super(SAC_Brain,self).__init__(name,anum)
-    print(state_dim)
+    #print(state_dim)
     self.file_name = filepath
     self.state_dim = state_dim
     self.action_dim = action_dim

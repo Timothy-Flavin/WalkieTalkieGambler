@@ -5,6 +5,7 @@ from torch.distributions import MultivariateNormal
 from torch.distributions import Categorical
 from torch.distributions import Normal
 import copy
+import traceback
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -42,7 +43,11 @@ class Actor(nn.Module):
     #print(f"state shape: {state.shape}")
     #print(f"h shape: {h.shape}")
     #print(f"talk layer(h) shape: {self.talk_layer(h).shape}")
-    talk_dist = torch.softmax(self.talk_layer(h), 0) # this is binomial we don't talk about it
+    tk = self.talk_layer(h)#5*F.sigmoid(self.talk_layer(h))
+    #print(tk)
+    talk_dist = torch.softmax(tk, 1) # this is binomial we don't talk about it
+    #print("talk_dist")
+    #print(talk_dist)
     talk_sampler = Categorical(talk_dist)
     talk = talk_sampler.sample()
     talk_log=talk_sampler.log_prob(talk)
@@ -273,8 +278,10 @@ class SAC_radio(brain):
     Q_env = torch.min(Q1,Q2)
     Q_msg = torch.min(Q3,Q4)
 
-    Q_env = (Q_env-torch.mean(Q_env,0))/torch.minimum(torch.std(Q_env,0),torch.ones(Q_env.shape).to(self.device)/1000) #TODO make something better
-    Q_msg = (Q_msg-torch.mean(Q_msg,0))/torch.minimum(torch.std(Q_msg,0),torch.ones(Q_msg.shape).to(self.device)/1000) #TODO do better
+    Q_env =- Q_env.min(1,keepdim=True)[0]
+    Q_env /= torch.maximum(Q_env.max(1,keepdim=True)[0],torch.ones(Q_env.shape).to(self.device)*0.0001)#(Q_env-torch.mean(Q_env,0))/torch.minimum(torch.std(Q_env,0),torch.ones(Q_env.shape).to(self.device)/1000) #TODO make something better
+    Q_msg =  Q_msg.min(1,keepdim=True)[0]
+    Q_msg /= torch.maximum(Q_msg.max(1,keepdim=True)[0],torch.ones(Q_env.shape).to(self.device)*0.0001)#(Q_msg-torch.mean(Q_msg,0))/torch.minimum(torch.std(Q_msg,0),torch.ones(Q_msg.shape).to(self.device)/1000) #TODO do better
 
     action_loss = (self.trade_off*(action_log) - Q_env).mean() 
     
@@ -330,20 +337,26 @@ class SAC_radio(brain):
        targ_loss, 
        targ_loss_c,
        ) = self.a_loss(states,actions,states_,rewards,dones,legalitys,anum)
-      self.actor_optimizer.zero_grad()
-      action_loss.backward(retain_graph=True) #TODO matthew aggregate these (no questions allowed)
-      command_loss.backward(retain_graph=True)
-      going_loss.backward(retain_graph=True) 
-      talk_loss.backward(retain_graph=True) 
-
-
-      #print("hi")
-      msg_loss_c.backward(retain_graph=True) 
       
-      msg_loss.backward(retain_graph=True) 
-      targ_loss.backward(retain_graph=True) 
-      targ_loss_c.backward()
-      self.actor_optimizer.step()
+      try:
+        self.actor_optimizer.zero_grad()
+        action_loss.backward(retain_graph=True) #TODO matthew aggregate these (no questions allowed)
+        command_loss.backward(retain_graph=True)
+        going_loss.backward(retain_graph=True) 
+        talk_loss.backward(retain_graph=True) 
+        msg_loss_c.backward(retain_graph=True) 
+        msg_loss.backward(retain_graph=True) 
+        targ_loss.backward(retain_graph=True) 
+        targ_loss_c.backward()
+        self.actor_optimizer.step()
+      except Exception as e:
+        print(e)
+        print(f"States {states},\n actions: {actions},\n next_states: {states_},\n rewards: {rewards},\n Dones: {dones},\n legality: {legalitys},anum: {anum}")
+        for name,param in self.actor.parameters():
+          print(name)
+          print(param.data)
+        input()
+        print(traceback.print_exception(e))
 
       # spinning up
       with torch.no_grad():
