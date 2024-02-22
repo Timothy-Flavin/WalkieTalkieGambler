@@ -368,18 +368,18 @@ class SAC_radio(brain):
        targ_loss_c,
        ) = self.a_loss(states,actions,states_,rewards,dones,legalitys,anum)
       
-      self.loss_history.append([
-        critic_loss1.cpu().item(),
-        critic_loss2.cpu().item(),
-        action_loss.cpu().item(), 
-        command_loss.cpu().item(), 
-        going_loss.cpu().item(), 
-        talk_loss.cpu().item(), 
-        msg_loss.cpu().item(), 
-        msg_loss_c.cpu().item(), 
-        targ_loss.cpu().item(), 
-        targ_loss_c.cpu().item(),
-      ])
+      #self.loss_history.append([
+      #  critic_loss1.cpu().item(),
+      #  critic_loss2.cpu().item(),
+      #  action_loss.cpu().item(), 
+      #  command_loss.cpu().item(), 
+      #  going_loss.cpu().item(), 
+      #  talk_loss.cpu().item(), 
+      #  msg_loss.cpu().item(), 
+      #  msg_loss_c.cpu().item(), 
+      #  targ_loss.cpu().item(), 
+      #  targ_loss_c.cpu().item(),
+      #])
       #print(f"Loss history")
       strings = ["critic_loss1",
         "critic_loss2",
@@ -391,12 +391,12 @@ class SAC_radio(brain):
         "msg_loss_c", 
         "targ_loss", 
         "targ_loss_c",]
-      lh = np.array(self.loss_history)
-      if int(self.up_num/self.update_every)%1000 == 0:
-        for l in range(lh.shape[1]):
-          plt.plot(lh[:,l], label=strings[l])
-        plt.legend()
-        plt.show()
+      #lh = np.array(self.loss_history)
+      #if int(self.up_num/self.update_every)%1000 == 0:
+      #  for l in range(lh.shape[1]):
+      #    plt.plot(lh[:,l], label=strings[l])
+      #  plt.legend()
+      #  plt.show()
 
       try:
         self.actor_optimizer.zero_grad()
@@ -416,7 +416,7 @@ class SAC_radio(brain):
           print(name)
           print(param.data)
         #input()
-        print(traceback.print_exception(e))
+        #print(traceback.print_exception(e))
 
       # spinning up
       with torch.no_grad():
@@ -437,17 +437,23 @@ class SAC_radio(brain):
     pass
   
   def save(self, filename):
-    #torch.save(self.critic.state_dict(), filename + "_critic")
-    #torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")
-    print("jappy pini")
-    #torch.save(self.actor.state_dict(), filename + "_actor")
-    #torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
+    torch.save(self.critic_env.state_dict(), filename + "_critic_env")
+    torch.save(self.critic_env_optimizer.state_dict(), filename + "_critic_env_optimizer")
+    torch.save(self.critic_msg.state_dict(), filename + "_critic_msg")
+    torch.save(self.critic_msg_optimizer.state_dict(), filename + "_critic_msg_optimizer")
+    #print("jappy pini")
+    torch.save(self.actor.state_dict(), filename + "_actor")
+    torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
 
 
   def _load(self, filename):
-    self.critic.load_state_dict(torch.load(filename + "_critic"))
-    self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer"))
-    self.critic_target = copy.deepcopy(self.critic)
+    self.critic_env.load_state_dict(torch.load(filename + "_critic_env"))
+    self.critic_env_optimizer.load_state_dict(torch.load(filename + "_critic_env_optimizer"))
+    self.critic_env_target = copy.deepcopy(self.critic_env)
+
+    self.critic_msg.load_state_dict(torch.load(filename + "_critic_msg"))
+    self.critic_msg_optimizer.load_state_dict(torch.load(filename + "_critic_msg_optimizer"))
+    self.critic_msg_target = copy.deepcopy(self.critic_msg)
 
     self.actor.load_state_dict(torch.load(filename + "_actor"))
     self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))
